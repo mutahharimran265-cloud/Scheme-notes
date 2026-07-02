@@ -1,0 +1,341 @@
+"use client";
+
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  TransformWrapper,
+  TransformComponent,
+  type ReactZoomPanPinchContentRef,
+} from "react-zoom-pan-pinch";
+import { STATUS_PIN_BG } from "@/lib/status";
+
+export type PinData = {
+  id: string;
+  x: number;
+  y: number;
+  number: number;
+  status: string;
+};
+
+type AnchorBox = {
+  left: number;
+  top: number;
+  cw: number;
+  ch: number;
+  openLeft: boolean;
+  openUp: boolean;
+};
+
+type Props = {
+  fileUrl: string;
+  fileType: string;
+  pins: PinData[];
+  activeId: string | null;
+  draftPin: { x: number; y: number } | null;
+  /** The popover content (composer or thread) to anchor at the active/draft pin. */
+  overlay: React.ReactNode;
+  onCanvasClick: (x: number, y: number) => void;
+  onSelectPin: (id: string) => void;
+};
+
+const CLICK_MOVE_THRESHOLD = 5;
+const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+
+export default function SchematicViewer({
+  fileUrl,
+  fileType,
+  pins,
+  activeId,
+  draftPin,
+  overlay,
+  onCanvasClick,
+  onSelectPin,
+}: Props) {
+  const isPdf = fileType === "pdf";
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const apiRef = useRef<ReactZoomPanPinchContentRef | null>(null);
+  const downRef = useRef<{ x: number; y: number } | null>(null);
+
+  const [pdfState, setPdfState] = useState<"loading" | "ready" | "error">(
+    isPdf ? "loading" : "ready",
+  );
+  const [tick, setTick] = useState(0);
+  const [anchorBox, setAnchorBox] = useState<AnchorBox | null>(null);
+
+  const anchor = draftPin ?? pins.find((p) => p.id === activeId) ?? null;
+
+  const setInvScale = useCallback((scale: number) => {
+    containerRef.current?.style.setProperty("--inv-scale", String(1 / scale));
+  }, []);
+
+  // Fit the schematic into the viewport, centered.
+  const fitView = useCallback(() => {
+    const wrap = containerRef.current;
+    const el = mediaRef.current;
+    const api = apiRef.current;
+    if (!wrap || !el || !api) return;
+    const cw = wrap.clientWidth;
+    const ch = wrap.clientHeight;
+    const mw = el.offsetWidth;
+    const mh = el.offsetHeight;
+    if (!mw || !mh) return;
+    const scale = Math.min(cw / mw, ch / mh) * 0.92;
+    api.setTransform((cw - mw * scale) / 2, (ch - mh * scale) / 2, scale, 200);
+    setInvScale(scale);
+    setTick((t) => t + 1);
+  }, [setInvScale]);
+
+  // Render the first page of a PDF onto the canvas.
+  useEffect(() => {
+    if (!isPdf) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const pdfjs = await import("pdfjs-dist");
+        pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
+        const pdf = await pdfjs.getDocument({ url: fileUrl }).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 2 });
+        const canvas = canvasRef.current;
+        if (!canvas || cancelled) return;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        await page.render({ canvasContext: ctx, viewport, canvas }).promise;
+        if (!cancelled) {
+          setPdfState("ready");
+          requestAnimationFrame(fitView);
+        }
+      } catch (err) {
+        console.error("PDF render failed:", err);
+        if (!cancelled) setPdfState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isPdf, fileUrl, fitView]);
+
+  // Recompute the popover anchor whenever the transform, anchor, or size changes.
+  useLayoutEffect(() => {
+    const el = mediaRef.current;
+    const wrap = containerRef.current;
+    if (!anchor || !el || !wrap) {
+      setAnchorBox(null);
+      return;
+    }
+    const m = el.getBoundingClientRect();
+    const c = wrap.getBoundingClientRect();
+    const left = m.left - c.left + (anchor.x / 100) * m.width;
+    const top = m.top - c.top + (anchor.y / 100) * m.height;
+    setAnchorBox({
+      left,
+      top,
+      cw: c.width,
+      ch: c.height,
+      openLeft: left > c.width / 2,
+      openUp: top > c.height / 2,
+    });
+  }, [anchor?.x, anchor?.y, tick]);
+
+  // Keep anchor + fit correct on container resize.
+  useEffect(() => {
+    const onResize = () => setTick((t) => t + 1);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  function pointFromEvent(e: React.PointerEvent) {
+    const el = mediaRef.current;
+    if (!el) return null;
+    const rect = el.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    if (x < 0 || x > 100 || y < 0 || y > 100) return null;
+    return { x, y };
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    downRef.current = { x: e.clientX, y: e.clientY };
+  }
+
+  function onPointerUp(e: React.PointerEvent) {
+    const down = downRef.current;
+    downRef.current = null;
+    if (!down) return;
+    const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+    if (moved > CLICK_MOVE_THRESHOLD) return; // pan, not a click
+    const pt = pointFromEvent(e);
+    if (pt) onCanvasClick(pt.x, pt.y);
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative h-full w-full overflow-hidden"
+      style={{ ["--inv-scale" as string]: 1 } as React.CSSProperties}
+    >
+      <TransformWrapper
+        ref={apiRef}
+        minScale={0.05}
+        maxScale={16}
+        initialScale={1}
+        centerOnInit
+        limitToBounds={false}
+        doubleClick={{ disabled: true }}
+        wheel={{ step: 0.12 }}
+        panning={{ velocityDisabled: true }}
+        onInit={() => {
+          if (!isPdf) requestAnimationFrame(fitView);
+        }}
+        onTransform={(_ref, state) => {
+          setInvScale(state.scale);
+          setTick((t) => t + 1);
+        }}
+      >
+        {({ zoomIn, zoomOut }) => (
+          <>
+            <div className="absolute right-3 top-3 z-20 flex items-center gap-0.5 rounded-xl border border-black/[0.06] bg-white/85 p-1 shadow-lg shadow-black/5 backdrop-blur-md dark:border-white/[0.08] dark:bg-zinc-900/85">
+              <ToolbarButton label="Zoom out" onClick={() => zoomOut()}>
+                −
+              </ToolbarButton>
+              <ToolbarButton label="Zoom in" onClick={() => zoomIn()}>
+                +
+              </ToolbarButton>
+              <ToolbarButton label="Fit to screen" onClick={fitView}>
+                ⤢
+              </ToolbarButton>
+            </div>
+
+            {pdfState !== "ready" && (
+              <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center">
+                <span
+                  className={`rounded-lg px-3 py-1.5 text-sm ${
+                    pdfState === "error" ? "text-red-600" : "text-zinc-500"
+                  }`}
+                >
+                  {pdfState === "error"
+                    ? "Could not render this PDF. Try a PNG/SVG export."
+                    : "Rendering PDF…"}
+                </span>
+              </div>
+            )}
+
+            <TransformComponent
+              wrapperStyle={{ width: "100%", height: "100%" }}
+              contentStyle={{ width: "100%", height: "100%" }}
+            >
+              <div
+                ref={mediaRef}
+                onPointerDown={onPointerDown}
+                onPointerUp={onPointerUp}
+                className="relative select-none"
+              >
+                {isPdf ? (
+                  <canvas ref={canvasRef} className="block max-w-none" />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={fileUrl}
+                    alt="Schematic"
+                    className="block max-w-none"
+                    draggable={false}
+                    onLoad={() => requestAnimationFrame(fitView)}
+                  />
+                )}
+
+                {/* Comment pins — counter-scaled so they stay a constant screen size */}
+                {pins.map((p) => (
+                  <button
+                    key={p.id}
+                    onPointerDown={stop}
+                    onPointerUp={stop}
+                    onClick={(e) => {
+                      stop(e);
+                      onSelectPin(p.id);
+                    }}
+                    title={`Comment ${p.number}`}
+                    style={{
+                      left: `${p.x}%`,
+                      top: `${p.y}%`,
+                      transform:
+                        "translate(-50%,-50%) scale(var(--inv-scale))",
+                    }}
+                    className={`absolute grid h-7 w-7 place-items-center rounded-full text-xs font-semibold text-white shadow-md ring-2 ring-white/80 transition-transform hover:scale-110 ${
+                      STATUS_PIN_BG[p.status] ?? "bg-indigo-600"
+                    } ${
+                      activeId === p.id
+                        ? "outline outline-2 outline-offset-2 outline-indigo-500"
+                        : ""
+                    }`}
+                  >
+                    {p.number}
+                  </button>
+                ))}
+
+                {/* Draft pin (new, unsaved comment) */}
+                {draftPin && (
+                  <span
+                    style={{
+                      left: `${draftPin.x}%`,
+                      top: `${draftPin.y}%`,
+                      transform:
+                        "translate(-50%,-50%) scale(var(--inv-scale))",
+                    }}
+                    className="pointer-events-none absolute grid h-7 w-7 animate-pulse place-items-center rounded-full bg-indigo-600/90 text-xs font-semibold text-white shadow-md ring-2 ring-white"
+                  >
+                    +
+                  </span>
+                )}
+              </div>
+            </TransformComponent>
+          </>
+        )}
+      </TransformWrapper>
+
+      {/* Anchored popover (composer / thread), positioned in container space */}
+      {anchorBox && overlay && (
+        <div
+          className="absolute z-30"
+          style={{
+            left: anchorBox.openLeft ? undefined : anchorBox.left + 16,
+            right: anchorBox.openLeft
+              ? anchorBox.cw - anchorBox.left + 16
+              : undefined,
+            top: anchorBox.openUp ? undefined : anchorBox.top + 16,
+            bottom: anchorBox.openUp
+              ? anchorBox.ch - anchorBox.top + 16
+              : undefined,
+          }}
+        >
+          {overlay}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ToolbarButton({
+  children,
+  label,
+  onClick,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="grid h-8 w-8 place-items-center rounded text-lg leading-none text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+    >
+      {children}
+    </button>
+  );
+}

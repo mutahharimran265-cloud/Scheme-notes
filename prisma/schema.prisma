@@ -1,0 +1,64 @@
+// SchemNotes data model — see README for an overview.
+// Using SQLite for local dev; swap `provider` to "postgresql" for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id         String          @id @default(cuid())
+  title      String
+  ownerEmail String? // captured for the "my projects" dashboard; commenting stays login-free
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @default(now()) @updatedAt
+  files      SchematicFile[]
+}
+
+model SchematicFile {
+  id         String    @id @default(cuid())
+  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId  String
+  fileUrl      String
+  fileType     String // rendered/served type: png | jpg | pdf | svg
+  // For native EDA uploads (e.g. KiCad .kicad_sch) we render to SVG for viewing
+  // but keep the uploaded source file so reviewers can download the original.
+  originalUrl  String?
+  originalName String?
+  uploadedAt   DateTime @default(now())
+  comments   Comment[]
+
+  @@index([projectId])
+  @@unique([projectId])
+}
+
+model Comment {
+  id              String        @id @default(cuid())
+  schematicFile   SchematicFile @relation(fields: [schematicFileId], references: [id], onDelete: Cascade)
+  schematicFileId String
+  // Self-relation for threaded replies. A null parent = a top-level thread (has a pin).
+  parent          Comment?      @relation("Replies", fields: [parentCommentId], references: [id])
+  parentCommentId String?
+  replies         Comment[]     @relation("Replies")
+  authorName      String
+  // Per-browser secret (localStorage) that proves ownership of an anonymous
+  // comment, so the author can edit/delete it without an account.
+  authorToken     String?
+  body            String
+  // Pin location as a percentage of the rendered image (survives zoom/resize).
+  // Null for replies — they hang off the parent thread's pin.
+  xPercent        Float?
+  yPercent        Float?
+  pageNumber      Int           @default(1)
+  status          String        @default("open") // open, resolved, wontfix
+  resolved        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([schematicFileId])
+  @@index([parentCommentId])
+}

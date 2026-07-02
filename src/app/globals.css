@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: var(--font-space-grotesk);
+}
+
+/* ---------- Design tokens ---------- */
+:root {
+  --background: #f5f6fb;
+  --foreground: #0e1424;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #070a12;
+    --foreground: #e7ebf5;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* ---------- Blueprint grid (schematic canvas + accents) ---------- */
+.bp-grid {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(rgba(79, 70, 229, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 70, 229, 0.06) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.bp-grid-lg {
+  background-image:
+    linear-gradient(rgba(79, 70, 229, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 70, 229, 0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(130% 92% at 50% -8%, #000 42%, transparent 82%);
+  mask-image: radial-gradient(130% 92% at 50% -8%, #000 42%, transparent 82%);
+}
+
+@media (prefers-color-scheme: dark) {
+  .bp-grid {
+    background-image:
+      linear-gradient(rgba(129, 140, 248, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(129, 140, 248, 0.1) 1px, transparent 1px);
+  }
+  .bp-grid-lg {
+    background-image:
+      linear-gradient(rgba(129, 140, 248, 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(129, 140, 248, 0.12) 1px, transparent 1px);
+  }
+}
+
+/* Soft radial glow behind the hero */
+.hero-glow {
+  background:
+    radial-gradient(60% 60% at 50% 0%, rgba(79, 70, 229, 0.14), transparent 70%),
+    radial-gradient(40% 50% at 85% 10%, rgba(14, 165, 233, 0.1), transparent 70%);
+}
+
+/* Subtle rise-in for above-the-fold content */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.rise { animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.rise-2 { animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.08s both; }
+.rise-3 { animation: rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) 0.16s both; }
+
+/* Thin, refined scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 130, 160, 0.4) transparent;
+}
