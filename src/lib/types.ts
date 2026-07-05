@@ -7,8 +7,14 @@ export type CommentDTO = {
   xPercent: number | null;
   yPercent: number | null;
   resolved: boolean;
-  /** Workflow state: "open" | "resolved" | "wontfix". */
+  /** Workflow state: "open" | "in_review" | "resolved" | "wontfix". */
   status: string;
+  /** Set when this comment was carried over from an earlier revision. */
+  carriedFromId: string | null;
+  tags: string[];
+  componentRef: string | null;
+  partNumber: string | null;
+  datasheetUrl: string | null;
   createdAt: string;
   updatedAt: string;
   /** True when the requesting browser owns this comment (matches authorToken). */

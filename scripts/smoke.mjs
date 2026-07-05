@@ -115,6 +115,89 @@ async function main() {
   ok(wf.comment.status === "wontfix", "status can be set to won't fix");
   ok(wf.comment.resolved === true, "won't-fix keeps resolved in sync");
 
+  console.log("Revisions & metadata:");
+  const t2res = await fetch(`${BASE}/api/comments`, {
+    method: "POST",
+    headers: jsonHeaders,
+    body: JSON.stringify({
+      schematicFileId: fileId,
+      authorName: "Alex",
+      body: "Check decoupling on U3",
+      xPercent: 55.5,
+      yPercent: 44.25,
+      authorToken: token,
+      tags: ["power", "#emi"],
+      componentRef: "U3",
+      partNumber: "TPS7A2033",
+      datasheetUrl: "https://example.com/tps7a20.pdf",
+    }),
+  });
+  const t2 = (await t2res.json()).comment;
+  ok(t2res.status === 201 && t2.componentRef === "U3", "thread stores componentRef");
+  ok(
+    Array.isArray(t2.tags) && t2.tags.includes("power") && t2.tags.includes("emi"),
+    "tags stored + normalized (# stripped)",
+  );
+  ok(t2.datasheetUrl === "https://example.com/tps7a20.pdf", "datasheet URL stored");
+
+  const ir = await (
+    await fetch(`${BASE}/api/comments/${t2.id}`, {
+      method: "PATCH",
+      headers: jsonHeaders,
+      body: JSON.stringify({ status: "in_review" }),
+    })
+  ).json();
+  ok(
+    ir.comment.status === "in_review" && ir.comment.resolved === false,
+    "in_review is outstanding (not resolved)",
+  );
+
+  const revFd = new FormData();
+  revFd.append("file", new Blob([buf], { type: "image/svg+xml" }), "rev-b.svg");
+  revFd.append("name", "rev B");
+  revFd.append("carryOver", "true");
+  const revRes = await fetch(`${BASE}/api/projects/${upJson.projectId}/revisions`, {
+    method: "POST",
+    body: revFd,
+  });
+  const revJson = await revRes.json();
+  ok(revRes.status === 201 && !!revJson.revisionId, "new revision created (201)");
+  ok(revJson.carried === 1, "only outstanding threads carried (won't-fix left behind)");
+
+  const revThreads = (
+    await (
+      await fetch(`${BASE}/api/comments?fileId=${revJson.fileId}`, {
+        headers: { "x-author-token": token },
+      })
+    ).json()
+  ).threads;
+  ok(revThreads.length === 1, "new revision has exactly the carried thread");
+  const carried = revThreads[0];
+  ok(carried.carriedFromId === t2.id, "carried thread links back to its origin");
+  ok(
+    carried.xPercent === 55.5 && carried.yPercent === 44.25,
+    "carried pin keeps exact coords",
+  );
+  ok(
+    carried.status === "in_review" && carried.tags.includes("power"),
+    "carried thread keeps status + tags",
+  );
+  ok(carried.isOwn === true, "carried thread keeps original authorship");
+
+  const oldThreads = (
+    await (
+      await fetch(`${BASE}/api/comments?fileId=${fileId}`, {
+        headers: { "x-author-token": token },
+      })
+    ).json()
+  ).threads;
+  ok(oldThreads.length === 2, "original revision unchanged after carry-over");
+
+  const revPage = await fetch(
+    `${BASE}/project/${upJson.projectId}?rev=${revJson.revisionId}`,
+  );
+  ok(revPage.status === 200, "?rev deep link renders");
+
   console.log("Security / validation:");
   const wrongEdit = await fetch(`${BASE}/api/comments/${threadId}`, {
     method: "PATCH",
@@ -165,7 +248,11 @@ async function main() {
       headers: { "x-author-token": token },
     })
   ).json();
-  ok(after.threads.length === 0, "deleting a thread cascades its replies");
+  // t2 (the metadata thread) legitimately remains; threadId + its reply must be gone.
+  ok(
+    after.threads.length === 1 && after.threads.every((t) => t.id !== threadId),
+    "deleting a thread cascades its replies",
+  );
 
   console.log("Auth + ownership:");
   const reqRes = await fetch(`${BASE}/api/auth/request`, {

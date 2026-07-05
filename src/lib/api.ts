@@ -35,6 +35,10 @@ export async function createThread(input: {
   body: string;
   xPercent: number;
   yPercent: number;
+  tags?: string[];
+  componentRef?: string;
+  partNumber?: string;
+  datasheetUrl?: string;
 }): Promise<CommentDTO> {
   const res = await fetch("/api/comments", {
     method: "POST",
@@ -58,7 +62,8 @@ export async function createReply(input: {
   return (await parse(res)).comment as CommentDTO;
 }
 
-export type CommentStatus = "open" | "resolved" | "wontfix";
+export type { CommentStatus } from "./status";
+import type { CommentStatus } from "./status";
 
 export async function setStatus(
   id: string,
@@ -104,4 +109,20 @@ export async function deleteProject(id: string): Promise<void> {
     method: "DELETE",
   });
   await parse(res);
+}
+
+export async function createRevision(
+  projectId: string,
+  input: { file: File; name: string; note?: string; carryOver: boolean },
+): Promise<{ revisionId: string; fileId: string; carried: number }> {
+  const fd = new FormData();
+  fd.append("file", input.file);
+  fd.append("name", input.name);
+  if (input.note) fd.append("note", input.note);
+  fd.append("carryOver", String(input.carryOver));
+  const res = await fetch(`/api/projects/${projectId}/revisions`, {
+    method: "POST",
+    body: fd,
+  });
+  return (await parse(res)) as { revisionId: string; fileId: string; carried: number };
 }

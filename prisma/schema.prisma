@@ -17,6 +17,21 @@ model Project {
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @default(now()) @updatedAt
   files      SchematicFile[]
+  revisions  Revision[]
+}
+
+// A named schematic revision ("rev A", "v2.1"). Comments attach to a
+// revision's file; new revisions can carry over outstanding comments.
+model Revision {
+  id        String          @id @default(cuid())
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  name      String
+  note      String?
+  createdAt DateTime        @default(now())
+  files     SchematicFile[]
+
+  @@index([projectId])
 }
 
 model SchematicFile {
@@ -29,11 +44,13 @@ model SchematicFile {
   // but keep the uploaded source file so reviewers can download the original.
   originalUrl  String?
   originalName String?
-  uploadedAt   DateTime @default(now())
-  comments   Comment[]
+  uploadedAt   DateTime  @default(now())
+  revision     Revision? @relation(fields: [revisionId], references: [id], onDelete: Cascade)
+  revisionId   String?
+  comments     Comment[]
 
   @@index([projectId])
-  @@unique([projectId])
+  @@index([revisionId])
 }
 
 model Comment {
@@ -54,11 +71,30 @@ model Comment {
   xPercent        Float?
   yPercent        Float?
   pageNumber      Int           @default(1)
-  status          String        @default("open") // open, resolved, wontfix
+  status          String        @default("open") // open, in_review, resolved, wontfix
   resolved        Boolean       @default(false)
+  // Set when this comment was carried over from an earlier revision.
+  carriedFrom     Comment?      @relation("CarriedComments", fields: [carriedFromId], references: [id], onDelete: SetNull)
+  carriedFromId   String?
+  carried         Comment[]     @relation("CarriedComments")
+  // Engineer metadata: tags (JSON string array) + optional component link.
+  tags            String        @default("[]")
+  componentRef    String? // designator or net, e.g. "R12", "NET_VBUS"
+  partNumber      String?
+  datasheetUrl    String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
 
   @@index([schematicFileId])
   @@index([parentCommentId])
+  @@index([carriedFromId])
+}
+
+// Personal access tokens for the scriptable local REST API (Phase 2 item 7).
+model ApiToken {
+  id         String    @id @default(cuid())
+  tokenHash  String    @unique
+  label      String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
 }

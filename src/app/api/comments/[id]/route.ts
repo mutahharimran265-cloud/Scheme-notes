@@ -28,11 +28,12 @@ export async function PATCH(
   const patch: { resolved?: boolean; body?: string; status?: string } = {};
 
   // Status workflow (collaborative — anyone with the link may change it).
-  // Keep the legacy `resolved` boolean in sync so older clients keep working.
-  const VALID_STATUS = ["open", "resolved", "wontfix"];
+  // Keep the legacy `resolved` boolean in sync so older clients keep working;
+  // "in review" is outstanding, so it is NOT resolved.
+  const VALID_STATUS = ["open", "in_review", "resolved", "wontfix"];
   if (typeof data.status === "string" && VALID_STATUS.includes(data.status)) {
     patch.status = data.status;
-    patch.resolved = data.status !== "open";
+    patch.resolved = data.status === "resolved" || data.status === "wontfix";
   } else if (typeof data.resolved === "boolean") {
     patch.resolved = data.resolved;
     patch.status = data.resolved ? "resolved" : "open";

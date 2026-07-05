@@ -14,7 +14,9 @@ import { statusOf, type CommentStatus } from "@/lib/status";
 import { getDisplayName, setDisplayName } from "@/lib/identity";
 import SchematicViewer from "./SchematicViewer";
 import CommentSidebar, { type ThreadFilter } from "./CommentSidebar";
-import PinComposer from "./PinComposer";
+import PinComposer, { type ComposerExtras } from "./PinComposer";
+import CommandPalette from "./CommandPalette";
+import type { RevisionSummary } from "./RevisionBar";
 import ThreadPanel from "./ThreadPanel";
 import NameModal from "./NameModal";
 import { Toast } from "./Toast";
@@ -30,17 +32,26 @@ type ToastState = {
 };
 
 type Props = {
+  projectId: string;
   fileId: string;
   fileUrl: string;
   fileType: string;
   initialThreads: ThreadDTO[];
+  revisions: (RevisionSummary & { fileId: string | null })[];
+  activeRevisionId: string;
+  /** Deep-link target (?focus=<commentId>) — opened once on mount. */
+  focusCommentId?: string;
 };
 
 export default function ProjectWorkspace({
+  projectId,
   fileId,
   fileUrl,
   fileType,
   initialThreads,
+  revisions,
+  activeRevisionId,
+  focusCommentId,
 }: Props) {
   const [threads, setThreads] = useState<ThreadDTO[]>(initialThreads);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -55,6 +66,7 @@ export default function ProjectWorkspace({
   const [toast, setToast] = useState<ToastState | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   // A delete waiting out its undo window: the API call only fires when the
   // window elapses (or a newer destructive action flushes it).
   const pendingDeleteRef = useRef<{ timer: number; commit: () => void } | null>(null);
@@ -83,6 +95,23 @@ export default function ProjectWorkspace({
       .then(setThreads)
       .catch(() => {});
   }, [fileId]);
+
+  // Deep link: /project/x?rev=...&focus=<commentId> opens that thread.
+  useEffect(() => {
+    if (focusCommentId) setActiveId(focusCommentId);
+  }, [focusCommentId]);
+
+  // Ctrl/Cmd+K toggles the search palette (works even while typing).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Keyboard-driven review: Esc closes, J/K (or arrows) step through comments,
   // R resolves/reopens the active one.
@@ -154,7 +183,7 @@ export default function ProjectWorkspace({
     setActiveId(id);
   }
 
-  function handleCreateThread(body: string) {
+  function handleCreateThread(body: string, extras: ComposerExtras) {
     if (!draftPin) return;
     const pin = draftPin;
     withName(async (author) => {
@@ -166,6 +195,10 @@ export default function ProjectWorkspace({
           body,
           xPercent: pin.x,
           yPercent: pin.y,
+          tags: extras.tags,
+          componentRef: extras.componentRef,
+          partNumber: extras.partNumber,
+          datasheetUrl: extras.datasheetUrl,
         });
         setThreads((prev) => [...prev, { ...created, replies: [] }]);
         setDraftPin(null);
@@ -423,6 +456,16 @@ export default function ProjectWorkspace({
           </aside>
         </div>
       )}
+
+      <CommandPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        projectId={projectId}
+        revisions={revisions}
+        activeRevisionId={activeRevisionId}
+        currentThreads={threads}
+        onJump={handleSelectPin}
+      />
 
       <NameModal
         open={nameModal.open}

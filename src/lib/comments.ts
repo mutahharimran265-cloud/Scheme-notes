@@ -14,6 +14,11 @@ export function toCommentDTO(c: Comment, viewerToken?: string | null): CommentDT
     createdAt: c.createdAt.toISOString(),
     updatedAt: c.updatedAt.toISOString(),
     status: c.status,
+    carriedFromId: c.carriedFromId,
+    tags: safeParseTags(c.tags),
+    componentRef: c.componentRef,
+    partNumber: c.partNumber,
+    datasheetUrl: c.datasheetUrl,
     // Stored token is a SHA-256 hash; hash the viewer's raw token to compare.
     isOwn: Boolean(
       viewerToken && c.authorToken && c.authorToken === hashToken(viewerToken),
@@ -46,4 +51,33 @@ export function cleanText(value: unknown, max: number): string {
 
 export function isPercent(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 100;
+}
+
+function safeParseTags(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((t) => typeof t === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+/** Validate user-supplied tags: strings, de-#'d, deduped, capped. */
+export function parseTags(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const t of raw) {
+    if (typeof t !== "string") continue;
+    const clean = sanitizeHtml(t).trim().replace(/^#/, "").slice(0, 24);
+    if (clean && !out.includes(clean)) out.push(clean);
+    if (out.length >= 10) break;
+  }
+  return out;
+}
+
+/** Only accept absolute http(s) URLs (e.g. datasheet links). */
+export function cleanUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const v = value.trim().slice(0, 300);
+  return /^https?:\/\//i.test(v) ? v : null;
 }

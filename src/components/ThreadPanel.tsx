@@ -48,6 +48,14 @@ export default function ThreadPanel({
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
           {STATUS_LABEL[status]}
         </span>
+        {thread.carriedFromId && (
+          <span
+            className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:bg-violet-950 dark:text-violet-300"
+            title="Carried over from an earlier revision"
+          >
+            Carried
+          </span>
+        )}
         <button
           onClick={onClose}
           aria-label="Close"
@@ -58,9 +66,12 @@ export default function ThreadPanel({
       </div>
 
       {/* Status actions */}
-      <div className="flex items-center gap-1.5 border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
-        {status === "open" ? (
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 px-3 py-2 dark:border-zinc-800">
+        {status === "open" && (
           <>
+            <StatusButton tone="sky" disabled={busy} onClick={() => onSetStatus("in_review")}>
+              In review
+            </StatusButton>
             <StatusButton tone="emerald" disabled={busy} onClick={() => onSetStatus("resolved")}>
               ✓ Resolve
             </StatusButton>
@@ -68,12 +79,57 @@ export default function ThreadPanel({
               Won&apos;t fix
             </StatusButton>
           </>
-        ) : (
+        )}
+        {status === "in_review" && (
+          <>
+            <StatusButton tone="emerald" disabled={busy} onClick={() => onSetStatus("resolved")}>
+              ✓ Resolve
+            </StatusButton>
+            <StatusButton tone="amber" disabled={busy} onClick={() => onSetStatus("wontfix")}>
+              Won&apos;t fix
+            </StatusButton>
+            <StatusButton tone="zinc" disabled={busy} onClick={() => onSetStatus("open")}>
+              ↩ Reopen
+            </StatusButton>
+          </>
+        )}
+        {(status === "resolved" || status === "wontfix") && (
           <StatusButton tone="zinc" disabled={busy} onClick={() => onSetStatus("open")}>
             ↩ Reopen
           </StatusButton>
         )}
       </div>
+
+      {/* Engineer metadata: component link + tags */}
+      {(thread.componentRef || thread.partNumber || thread.datasheetUrl || thread.tags.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 px-3 py-2 text-xs dark:border-zinc-800">
+          {thread.componentRef && (
+            <span className="rounded bg-zinc-100 px-1.5 py-0.5 font-mono font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200">
+              {thread.componentRef}
+            </span>
+          )}
+          {thread.partNumber && (
+            <span className="rounded bg-zinc-100 px-1.5 py-0.5 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+              {thread.partNumber}
+            </span>
+          )}
+          {thread.datasheetUrl && (
+            <a
+              href={thread.datasheetUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+            >
+              Datasheet ↗
+            </a>
+          )}
+          {thread.tags.map((t) => (
+            <span key={t} className="text-indigo-500">
+              #{t}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Comments */}
       <div className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
@@ -125,7 +181,7 @@ function StatusButton({
   onClick,
 }: {
   children: React.ReactNode;
-  tone: "emerald" | "amber" | "zinc";
+  tone: "emerald" | "amber" | "zinc" | "sky";
   disabled?: boolean;
   onClick: () => void;
 }) {
@@ -134,6 +190,7 @@ function StatusButton({
       "border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-900 dark:text-emerald-400 dark:hover:bg-emerald-950/40",
     amber:
       "border-amber-200 text-amber-700 hover:bg-amber-50 dark:border-amber-900 dark:text-amber-400 dark:hover:bg-amber-950/40",
+    sky: "border-sky-200 text-sky-700 hover:bg-sky-50 dark:border-sky-900 dark:text-sky-400 dark:hover:bg-sky-950/40",
     zinc: "border-zinc-200 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800",
   };
   return (

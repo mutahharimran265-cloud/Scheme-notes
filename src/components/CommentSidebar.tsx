@@ -2,11 +2,17 @@
 
 import type { ThreadDTO } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
-import { statusOf, STATUS_LABEL, STATUS_BADGE, STATUS_PIN_BG } from "@/lib/status";
+import {
+  statusOf,
+  isOutstanding,
+  STATUS_LABEL,
+  STATUS_BADGE,
+  STATUS_PIN_BG,
+} from "@/lib/status";
 import Avatar from "./Avatar";
 
 export type NumberedThread = ThreadDTO & { number: number };
-export type ThreadFilter = "all" | "open" | "resolved" | "wontfix";
+export type ThreadFilter = "all" | "open" | "in_review" | "resolved" | "wontfix";
 
 type Props = {
   threads: NumberedThread[];
@@ -33,18 +39,20 @@ export default function CommentSidebar({
   const counts = {
     all: threads.length,
     open: threads.filter((t) => statusOf(t) === "open").length,
+    in_review: threads.filter((t) => statusOf(t) === "in_review").length,
     resolved: threads.filter((t) => statusOf(t) === "resolved").length,
     wontfix: threads.filter((t) => statusOf(t) === "wontfix").length,
   };
   const total = threads.length;
-  const addressed = total - counts.open;
+  // Addressed = resolved or won't-fix; in-review still needs attention.
+  const addressed = counts.resolved + counts.wontfix;
   const pct = total ? Math.round((addressed / total) * 100) : 0;
 
   const visible = threads
     .filter((t) => (filter === "all" ? true : statusOf(t) === filter))
     .sort((a, b) => {
-      const ao = statusOf(a) === "open" ? 0 : 1;
-      const bo = statusOf(b) === "open" ? 0 : 1;
+      const ao = isOutstanding(a) ? 0 : 1;
+      const bo = isOutstanding(b) ? 0 : 1;
       if (ao !== bo) return ao - bo;
       return lastActivity(b) - lastActivity(a);
     });
@@ -52,6 +60,7 @@ export default function CommentSidebar({
   const tabs: { key: ThreadFilter; label: string; count: number }[] = [
     { key: "all", label: "All", count: counts.all },
     { key: "open", label: "Open", count: counts.open },
+    { key: "in_review", label: "In review", count: counts.in_review },
     { key: "resolved", label: "Resolved", count: counts.resolved },
     { key: "wontfix", label: "Won't fix", count: counts.wontfix },
   ];
@@ -159,10 +168,20 @@ export default function CommentSidebar({
                       >
                         {t.body}
                       </p>
-                      <div className="mt-1 flex items-center gap-2 text-[11px] text-zinc-400">
+                      <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
                         {replies > 0 && (
                           <span>
                             {replies} {replies === 1 ? "reply" : "replies"}
+                          </span>
+                        )}
+                        {t.componentRef && (
+                          <span className="rounded bg-zinc-100 px-1 py-0.5 font-mono font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                            {t.componentRef}
+                          </span>
+                        )}
+                        {t.carriedFromId && (
+                          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
+                            Carried
                           </span>
                         )}
                         {st !== "open" && (
@@ -182,13 +201,16 @@ export default function CommentSidebar({
         )}
       </div>
 
-      <div className="hidden shrink-0 items-center gap-1.5 border-t border-zinc-200 px-4 py-2 text-[11px] text-zinc-400 lg:flex dark:border-zinc-800">
+      <div className="hidden shrink-0 flex-wrap items-center gap-1.5 border-t border-zinc-200 px-4 py-2 text-[11px] text-zinc-400 lg:flex dark:border-zinc-800">
         <Kbd>J</Kbd>
         <Kbd>K</Kbd>
         <span>navigate</span>
         <span className="mx-1 opacity-40">·</span>
         <Kbd>R</Kbd>
         <span>resolve</span>
+        <span className="mx-1 opacity-40">·</span>
+        <Kbd>Ctrl K</Kbd>
+        <span>search</span>
         <span className="mx-1 opacity-40">·</span>
         <Kbd>Esc</Kbd>
         <span>close</span>

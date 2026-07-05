@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/auth";
-import { toThreadDTO, toCommentDTO, cleanText, isPercent, LIMITS } from "@/lib/comments";
+import {
+  toThreadDTO,
+  toCommentDTO,
+  cleanText,
+  isPercent,
+  parseTags,
+  cleanUrl,
+  LIMITS,
+} from "@/lib/comments";
 import { isRateLimited } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
@@ -96,6 +104,12 @@ export async function POST(req: NextRequest) {
     yPercent = data.yPercent;
   }
 
+  // Engineer metadata lives on thread roots only (replies inherit context).
+  const tags = rootParentId ? [] : parseTags(data.tags);
+  const componentRef = rootParentId ? null : cleanText(data.componentRef, 40) || null;
+  const partNumber = rootParentId ? null : cleanText(data.partNumber, 80) || null;
+  const datasheetUrl = rootParentId ? null : cleanUrl(data.datasheetUrl);
+
   const created = await prisma.comment.create({
     data: {
       schematicFileId,
@@ -105,6 +119,10 @@ export async function POST(req: NextRequest) {
       body,
       xPercent,
       yPercent,
+      tags: JSON.stringify(tags),
+      componentRef,
+      partNumber,
+      datasheetUrl,
     },
   });
 
