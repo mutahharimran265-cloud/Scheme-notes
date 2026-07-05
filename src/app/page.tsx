@@ -1,5 +1,6 @@
 import Link from "next/link";
 import UploadForm from "@/components/UploadForm";
+import HeroPreview from "@/components/HeroPreview";
 
 function Feature({
   icon,
@@ -126,7 +127,15 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="rise-3 mx-auto mt-10 max-w-xl">
+        <HeroPreview />
+
+        <div className="mx-auto mt-14 max-w-xl text-center">
+          <h2 className="font-display text-xl font-bold tracking-tight text-foreground">
+            Try it now — no sign-up
+          </h2>
+        </div>
+
+        <div className="mx-auto mt-5 max-w-xl">
           <div className="rounded-[22px] border border-black/[0.07] bg-white/70 p-1.5 shadow-[0_1px_2px_rgba(16,24,40,.04),0_24px_48px_-24px_rgba(30,27,75,.35)] backdrop-blur-md dark:border-white/[0.08] dark:bg-white/[0.04]">
             <div className="rounded-2xl bg-white p-6 dark:bg-zinc-950/60">
               <UploadForm />
