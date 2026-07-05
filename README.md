@@ -19,6 +19,8 @@ Getting feedback on a schematic today means either emailing a screenshot and rec
 - **Threaded discussions** with an **Open / In review / Resolved / Won't-fix** workflow — reply to any pin and triage like a GitHub PR conversation.
 - **Instant search (Ctrl/Cmd+K)** across every revision — full-text over comments and replies, `#tag` filters, status + revision filters, jump straight to the pin.
 - **Component linking** — tie a comment to a designator/net (`R12`, `NET_VBUS`), part number, and datasheet link; tag comments for grouping (`power`, `emi`).
+- **Markdown + pasted images** — paste a scope capture or board photo straight into any comment box; bodies render as GFM markdown (lists, code, tables). Images stay local; remote images are never fetched.
+- **Scriptable REST API** — personal tokens (dashboard → API tokens) let a test rig or CI auto-log pinned annotations, bypassing rate limits. See [`docs/API.md`](docs/API.md).
 - **Review sidebar** listing every thread with All / Open / Resolved filters; click a thread to jump to its pin (and vice‑versa).
 - **No‑login commenting** — reviewers just pick a display name. A per‑browser token lets them edit/delete *their own* comments without an account.
 - **Magic‑link sign‑in** (passwordless) for a **”My projects”** dashboard where owners can rename or delete their projects.

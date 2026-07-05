@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { CommentDTO, ThreadDTO } from "@/lib/types";
 import { timeAgo } from "@/lib/format";
+import { imageFromClipboard, uploadPastedImage, insertAtCursor } from "@/lib/paste";
+import CommentBody from "./CommentBody";
 import {
   statusOf,
   STATUS_LABEL,
@@ -34,7 +36,28 @@ export default function ThreadPanel({
   onClose,
 }: Props) {
   const [reply, setReply] = useState("");
+  const replyRef = useRef<HTMLTextAreaElement>(null);
+  const [pasting, setPasting] = useState(false);
+  const [pasteError, setPasteError] = useState<string | null>(null);
   const status = statusOf(thread);
+
+  async function onReplyPaste(e: React.ClipboardEvent) {
+    const img = imageFromClipboard(e);
+    if (!img) return;
+    e.preventDefault();
+    setPasting(true);
+    setPasteError(null);
+    try {
+      const url = await uploadPastedImage(img);
+      const { next, caret } = insertAtCursor(replyRef.current, reply, `![image](${url})`);
+      setReply(next);
+      requestAnimationFrame(() => replyRef.current?.setSelectionRange(caret, caret));
+    } catch (err) {
+      setPasteError(err instanceof Error ? err.message : "Image upload failed.");
+    } finally {
+      setPasting(false);
+    }
+  }
 
   return (
     <div className="flex max-h-[70vh] w-80 flex-col rounded-xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-900">
@@ -142,8 +165,10 @@ export default function ThreadPanel({
       {/* Reply box */}
       <div className="border-t border-zinc-100 p-3 dark:border-zinc-800">
         <textarea
+          ref={replyRef}
           value={reply}
           onChange={(e) => setReply(e.target.value)}
+          onPaste={onReplyPaste}
           onKeyDown={(e) => {
             if ((e.metaKey || e.ctrlKey) && e.key === "Enter" && reply.trim()) {
               onReply(reply.trim());
@@ -152,9 +177,15 @@ export default function ThreadPanel({
           }}
           rows={2}
           maxLength={4000}
-          placeholder="Reply…"
+          placeholder="Reply… (markdown + pasted images supported)"
           className="w-full resize-none rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950"
         />
+        {pasting && (
+          <p className="mt-1 text-xs text-zinc-400">Uploading image…</p>
+        )}
+        {pasteError && (
+          <p className="mt-1 text-xs text-red-600">{pasteError}</p>
+        )}
         <div className="mt-2 flex justify-end">
           <button
             onClick={() => {
@@ -215,6 +246,25 @@ function CommentItem({
 }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(comment.body);
+  const draftRef = useRef<HTMLTextAreaElement>(null);
+  const [pasting, setPasting] = useState(false);
+
+  async function onDraftPaste(e: React.ClipboardEvent) {
+    const img = imageFromClipboard(e);
+    if (!img) return;
+    e.preventDefault();
+    setPasting(true);
+    try {
+      const url = await uploadPastedImage(img);
+      const { next, caret } = insertAtCursor(draftRef.current, draft, `![image](${url})`);
+      setDraft(next);
+      requestAnimationFrame(() => draftRef.current?.setSelectionRange(caret, caret));
+    } catch {
+      // keep the draft untouched; the user can retry the paste
+    } finally {
+      setPasting(false);
+    }
+  }
 
   return (
     <div className="group flex gap-2">
@@ -251,12 +301,15 @@ function CommentItem({
         {editing ? (
           <div className="mt-1">
             <textarea
+              ref={draftRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              onPaste={onDraftPaste}
               rows={2}
               maxLength={4000}
               className="w-full resize-none rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950"
             />
+            {pasting && <p className="mt-1 text-xs text-zinc-400">Uploading image…</p>}
             <div className="mt-1 flex justify-end gap-2">
               <button
                 onClick={() => setEditing(false)}
@@ -279,9 +332,7 @@ function CommentItem({
             </div>
           </div>
         ) : (
-          <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-zinc-700 dark:text-zinc-200">
-            {comment.body}
-          </p>
+          <CommentBody body={comment.body} />
         )}
       </div>
     </div>

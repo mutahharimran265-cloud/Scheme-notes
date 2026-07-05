@@ -72,6 +72,12 @@ export async function GET(req: NextRequest) {
     for (const f of allFiles) {
       if (f.fileUrl) wanted.add(path.basename(f.fileUrl));
       if (f.originalUrl) wanted.add(path.basename(f.originalUrl));
+      // Images pasted into comment bodies (markdown) live in uploads too.
+      for (const c of f.comments) {
+        for (const m of c.body.matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) {
+          wanted.add(m[1]);
+        }
+      }
     }
   }
   const missing: string[] = [];

@@ -4,6 +4,7 @@ import { getSessionEmail } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { ProjectList } from "@/components/ProjectList";
 import ExportButton from "@/components/ExportButton";
+import ApiTokens from "@/components/ApiTokens";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,8 @@ export default async function DashboardPage() {
       </div>
 
       <ProjectList initialCards={cards} />
+
+      <ApiTokens />
     </main>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { imageFromClipboard, uploadPastedImage, insertAtCursor } from "@/lib/paste";
 
 export type ComposerExtras = {
   tags: string[];
@@ -24,11 +25,31 @@ export default function PinComposer({ authorName, busy, onSubmit, onCancel }: Pr
   const [componentRef, setComponentRef] = useState("");
   const [partNumber, setPartNumber] = useState("");
   const [datasheetUrl, setDatasheetUrl] = useState("");
+  const [pasting, setPasting] = useState(false);
+  const [pasteError, setPasteError] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     requestAnimationFrame(() => ref.current?.focus());
   }, []);
+
+  async function onPaste(e: React.ClipboardEvent) {
+    const img = imageFromClipboard(e);
+    if (!img) return;
+    e.preventDefault();
+    setPasting(true);
+    setPasteError(null);
+    try {
+      const url = await uploadPastedImage(img);
+      const { next, caret } = insertAtCursor(ref.current, body, `![image](${url})`);
+      setBody(next);
+      requestAnimationFrame(() => ref.current?.setSelectionRange(caret, caret));
+    } catch (err) {
+      setPasteError(err instanceof Error ? err.message : "Image upload failed.");
+    } finally {
+      setPasting(false);
+    }
+  }
 
   function submit() {
     if (!body.trim()) return;
@@ -70,11 +91,14 @@ export default function PinComposer({ authorName, busy, onSubmit, onCancel }: Pr
           if ((e.metaKey || e.ctrlKey) && e.key === "Enter") submit();
           if (e.key === "Escape") onCancel();
         }}
+        onPaste={onPaste}
         rows={3}
         maxLength={4000}
-        placeholder="Add your feedback…"
+        placeholder="Add your feedback… (markdown + pasted images supported)"
         className="w-full resize-none rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950"
       />
+      {pasting && <p className="mt-1 text-xs text-zinc-400">Uploading image…</p>}
+      {pasteError && <p className="mt-1 text-xs text-red-600">{pasteError}</p>}
 
       <button
         type="button"
