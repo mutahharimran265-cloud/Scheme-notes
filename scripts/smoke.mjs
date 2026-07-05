@@ -115,7 +115,7 @@ async function main() {
   ok(wf.comment.status === "wontfix", "status can be set to won't fix");
   ok(wf.comment.resolved === true, "won't-fix keeps resolved in sync");
 
-  console.log("Revisions & metadata:");
+  console.log("Metadata:");
   const t2res = await fetch(`${BASE}/api/comments`, {
     method: "POST",
     headers: jsonHeaders,
@@ -151,52 +151,6 @@ async function main() {
     ir.comment.status === "in_review" && ir.comment.resolved === false,
     "in_review is outstanding (not resolved)",
   );
-
-  const revFd = new FormData();
-  revFd.append("file", new Blob([buf], { type: "image/svg+xml" }), "rev-b.svg");
-  revFd.append("name", "rev B");
-  revFd.append("carryOver", "true");
-  const revRes = await fetch(`${BASE}/api/projects/${upJson.projectId}/revisions`, {
-    method: "POST",
-    body: revFd,
-  });
-  const revJson = await revRes.json();
-  ok(revRes.status === 201 && !!revJson.revisionId, "new revision created (201)");
-  ok(revJson.carried === 1, "only outstanding threads carried (won't-fix left behind)");
-
-  const revThreads = (
-    await (
-      await fetch(`${BASE}/api/comments?fileId=${revJson.fileId}`, {
-        headers: { "x-author-token": token },
-      })
-    ).json()
-  ).threads;
-  ok(revThreads.length === 1, "new revision has exactly the carried thread");
-  const carried = revThreads[0];
-  ok(carried.carriedFromId === t2.id, "carried thread links back to its origin");
-  ok(
-    carried.xPercent === 55.5 && carried.yPercent === 44.25,
-    "carried pin keeps exact coords",
-  );
-  ok(
-    carried.status === "in_review" && carried.tags.includes("power"),
-    "carried thread keeps status + tags",
-  );
-  ok(carried.isOwn === true, "carried thread keeps original authorship");
-
-  const oldThreads = (
-    await (
-      await fetch(`${BASE}/api/comments?fileId=${fileId}`, {
-        headers: { "x-author-token": token },
-      })
-    ).json()
-  ).threads;
-  ok(oldThreads.length === 2, "original revision unchanged after carry-over");
-
-  const revPage = await fetch(
-    `${BASE}/project/${upJson.projectId}?rev=${revJson.revisionId}`,
-  );
-  ok(revPage.status === 200, "?rev deep link renders");
 
   console.log("Attachments & API tokens:");
   const pngBytes = Buffer.from(

@@ -8,7 +8,7 @@ import { storeSchematicUpload, UploadError } from "@/lib/uploads";
 // File writes + kicad-cli need the Node.js runtime (not Edge).
 export const runtime = "nodejs";
 
-// POST /api/upload -> create a project with its first revision ("rev A").
+// POST /api/upload -> create a project with its schematic file.
 export async function POST(req: NextRequest) {
   let form: FormData;
   try {
@@ -39,26 +39,19 @@ export async function POST(req: NextRequest) {
     throw err;
   }
 
-  const project = await prisma.$transaction(async (tx) => {
-    const created = await tx.project.create({
-      data: {
-        title,
-        ownerEmail,
-        revisions: { create: { name: "rev A" } },
+  const project = await prisma.project.create({
+    data: {
+      title,
+      ownerEmail,
+      files: {
+        create: {
+          fileUrl: stored.fileUrl,
+          fileType: stored.servedType,
+          originalUrl: stored.originalUrl,
+          originalName: stored.originalName,
+        },
       },
-      include: { revisions: true },
-    });
-    await tx.schematicFile.create({
-      data: {
-        projectId: created.id,
-        revisionId: created.revisions[0].id,
-        fileUrl: stored.fileUrl,
-        fileType: stored.servedType,
-        originalUrl: stored.originalUrl,
-        originalName: stored.originalName,
-      },
-    });
-    return created;
+    },
   });
 
   return NextResponse.json(

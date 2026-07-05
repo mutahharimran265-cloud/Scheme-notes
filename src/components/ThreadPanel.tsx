@@ -71,14 +71,6 @@ export default function ThreadPanel({
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-200">
           {STATUS_LABEL[status]}
         </span>
-        {thread.carriedFromId && (
-          <span
-            className="rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-violet-700 dark:bg-violet-950 dark:text-violet-300"
-            title="Carried over from an earlier revision"
-          >
-            Carried
-          </span>
-        )}
         <button
           onClick={onClose}
           aria-label="Close"

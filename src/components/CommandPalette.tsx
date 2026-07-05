@@ -1,141 +1,61 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import type { ThreadDTO } from "@/lib/types";
-import { fetchThreads } from "@/lib/api";
 import { statusOf, STATUS_LABEL, STATUS_PIN_BG, type CommentStatus } from "@/lib/status";
-import type { RevisionSummary } from "./RevisionBar";
-
-type RevisionWithFile = RevisionSummary & { fileId: string | null };
-
-type Entry = {
-  thread: ThreadDTO;
-  revisionId: string;
-  revisionName: string;
-};
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  projectId: string;
-  revisions: RevisionWithFile[]; // newest first
-  activeRevisionId: string;
-  /** Live threads of the active revision (kept fresh by the workspace). */
-  currentThreads: ThreadDTO[];
+  threads: ThreadDTO[];
   onJump: (threadId: string) => void;
 };
 
-export default function CommandPalette({
-  open,
-  onClose,
-  projectId,
-  revisions,
-  activeRevisionId,
-  currentThreads,
-  onJump,
-}: Props) {
-  const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+export default function CommandPalette({ open, onClose, threads, onJump }: Props) {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | CommentStatus>("all");
-  const [revFilter, setRevFilter] = useState<string>("all");
   const [selected, setSelected] = useState(0);
-  // Threads of non-active revisions, fetched lazily the first time the
-  // palette opens (client-side after that — search stays instant + offline).
-  const [otherThreads, setOtherThreads] = useState<Record<string, ThreadDTO[]>>({});
-  const [loadingOthers, setLoadingOthers] = useState(false);
 
   useEffect(() => {
     if (!open) return;
     setQuery("");
     setSelected(0);
     setStatusFilter("all");
-    setRevFilter("all");
-    requestAnimationFrame(() => inputRef.current?.focus());
-
-    const missing = revisions.filter(
-      (r) => r.id !== activeRevisionId && r.fileId && !otherThreads[r.id],
-    );
-    if (missing.length === 0) return;
-    let cancelled = false;
-    setLoadingOthers(true);
-    Promise.all(
-      missing.map(async (r) => [r.id, await fetchThreads(r.fileId as string)] as const),
-    )
-      .then((pairs) => {
-        if (cancelled) return;
-        setOtherThreads((prev) => {
-          const next = { ...prev };
-          for (const [id, threads] of pairs) next[id] = threads;
-          return next;
-        });
-      })
-      .catch(() => {})
-      .finally(() => !cancelled && setLoadingOthers(false));
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
-
-  const entries: Entry[] = useMemo(() => {
-    const byRev = (revId: string, threads: ThreadDTO[]) => {
-      const rev = revisions.find((r) => r.id === revId);
-      return threads.map((thread) => ({
-        thread,
-        revisionId: revId,
-        revisionName: rev?.name ?? "?",
-      }));
-    };
-    const all: Entry[] = byRev(activeRevisionId, currentThreads);
-    for (const r of revisions) {
-      if (r.id === activeRevisionId) continue;
-      if (otherThreads[r.id]) all.push(...byRev(r.id, otherThreads[r.id]));
-    }
-    return all;
-  }, [revisions, activeRevisionId, currentThreads, otherThreads]);
 
   const results = useMemo(() => {
     const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
     const tagTokens = tokens.filter((t) => t.startsWith("#")).map((t) => t.slice(1));
     const textTokens = tokens.filter((t) => !t.startsWith("#"));
 
-    return entries
-      .filter((e) => {
-        if (statusFilter !== "all" && statusOf(e.thread) !== statusFilter) return false;
-        if (revFilter !== "all" && e.revisionId !== revFilter) return false;
-        const tags = e.thread.tags.map((t) => t.toLowerCase());
-        if (tagTokens.some((t) => !tags.some((tag) => tag.includes(t)))) return false;
+    return threads
+      .filter((t) => {
+        if (statusFilter !== "all" && statusOf(t) !== statusFilter) return false;
+        const tags = t.tags.map((tag) => tag.toLowerCase());
+        if (tagTokens.some((q) => !tags.some((tag) => tag.includes(q)))) return false;
         if (textTokens.length === 0) return true;
         const haystack = [
-          e.thread.body,
-          e.thread.authorName,
-          e.thread.componentRef ?? "",
-          e.thread.partNumber ?? "",
+          t.body,
+          t.authorName,
+          t.componentRef ?? "",
+          t.partNumber ?? "",
           tags.join(" "),
-          ...e.thread.replies.map((r) => r.body),
+          ...t.replies.map((r) => r.body),
         ]
           .join(" ")
           .toLowerCase();
-        return textTokens.every((t) => haystack.includes(t));
+        return textTokens.every((q) => haystack.includes(q));
       })
       .slice(0, 50);
-  }, [entries, query, statusFilter, revFilter]);
+  }, [threads, query, statusFilter]);
 
-  useEffect(() => setSelected(0), [query, statusFilter, revFilter]);
+  useEffect(() => setSelected(0), [query, statusFilter]);
 
   if (!open) return null;
 
-  function jump(entry: Entry) {
+  function jump(t: ThreadDTO) {
     onClose();
-    if (entry.revisionId === activeRevisionId) {
-      onJump(entry.thread.id);
-    } else {
-      router.push(
-        `/project/${projectId}?rev=${entry.revisionId}&focus=${entry.thread.id}`,
-      );
-    }
+    onJump(t.id);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -168,7 +88,7 @@ export default function CommandPalette({
             <path d="m20 20-3.5-3.5" />
           </svg>
           <input
-            ref={inputRef}
+            autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search comments… (#tag to filter by tag)"
@@ -193,40 +113,22 @@ export default function CommandPalette({
               {s === "all" ? "All" : STATUS_LABEL[s]}
             </button>
           ))}
-          {revisions.length > 1 && (
-            <select
-              value={revFilter}
-              onChange={(e) => setRevFilter(e.target.value)}
-              className="ml-auto rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs font-medium text-zinc-600 outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
-            >
-              <option value="all">All revisions</option>
-              {revisions.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
 
         <div className="max-h-[46vh] overflow-y-auto">
           {results.length === 0 ? (
-            <p className="px-4 py-8 text-center text-sm text-zinc-400">
-              {loadingOthers ? "Loading other revisions…" : "No matching comments."}
-            </p>
+            <p className="px-4 py-8 text-center text-sm text-zinc-400">No matching comments.</p>
           ) : (
             <ul>
-              {results.map((entry, i) => {
-                const st = statusOf(entry.thread);
+              {results.map((t, i) => {
+                const st = statusOf(t);
                 return (
-                  <li key={entry.thread.id}>
+                  <li key={t.id}>
                     <button
-                      onClick={() => jump(entry)}
+                      onClick={() => jump(t)}
                       onMouseEnter={() => setSelected(i)}
                       className={`flex w-full items-start gap-3 px-4 py-2.5 text-left ${
-                        i === selected
-                          ? "bg-indigo-50 dark:bg-indigo-950/30"
-                          : ""
+                        i === selected ? "bg-indigo-50 dark:bg-indigo-950/30" : ""
                       }`}
                     >
                       <span
@@ -235,23 +137,18 @@ export default function CommandPalette({
                       />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm text-zinc-800 dark:text-zinc-100">
-                          {entry.thread.body}
+                          {t.body}
                         </span>
                         <span className="mt-0.5 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
-                          <span>{entry.thread.authorName}</span>
-                          {entry.thread.componentRef && (
-                            <span className="font-mono text-zinc-500">
-                              {entry.thread.componentRef}
-                            </span>
+                          <span>{t.authorName}</span>
+                          {t.componentRef && (
+                            <span className="font-mono text-zinc-500">{t.componentRef}</span>
                           )}
-                          {entry.thread.tags.map((t) => (
-                            <span key={t} className="text-indigo-500">
-                              #{t}
+                          {t.tags.map((tag) => (
+                            <span key={tag} className="text-indigo-500">
+                              #{tag}
                             </span>
                           ))}
-                          <span className="ml-auto rounded bg-zinc-100 px-1.5 py-0.5 font-medium text-zinc-500 dark:bg-zinc-800">
-                            {entry.revisionName}
-                          </span>
                         </span>
                       </span>
                     </button>

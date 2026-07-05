@@ -179,11 +179,6 @@ export default function CommentSidebar({
                             {t.componentRef}
                           </span>
                         )}
-                        {t.carriedFromId && (
-                          <span className="rounded-full bg-violet-100 px-1.5 py-0.5 font-medium text-violet-700 dark:bg-violet-950 dark:text-violet-300">
-                            Carried
-                          </span>
-                        )}
                         {st !== "open" && (
                           <span
                             className={`rounded-full px-1.5 py-0.5 font-medium ${STATUS_BADGE[st]}`}

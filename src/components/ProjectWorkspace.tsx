@@ -16,7 +16,6 @@ import SchematicViewer from "./SchematicViewer";
 import CommentSidebar, { type ThreadFilter } from "./CommentSidebar";
 import PinComposer, { type ComposerExtras } from "./PinComposer";
 import CommandPalette from "./CommandPalette";
-import type { RevisionSummary } from "./RevisionBar";
 import ThreadPanel from "./ThreadPanel";
 import NameModal from "./NameModal";
 import { Toast } from "./Toast";
@@ -32,25 +31,19 @@ type ToastState = {
 };
 
 type Props = {
-  projectId: string;
   fileId: string;
   fileUrl: string;
   fileType: string;
   initialThreads: ThreadDTO[];
-  revisions: (RevisionSummary & { fileId: string | null })[];
-  activeRevisionId: string;
   /** Deep-link target (?focus=<commentId>) — opened once on mount. */
   focusCommentId?: string;
 };
 
 export default function ProjectWorkspace({
-  projectId,
   fileId,
   fileUrl,
   fileType,
   initialThreads,
-  revisions,
-  activeRevisionId,
   focusCommentId,
 }: Props) {
   const [threads, setThreads] = useState<ThreadDTO[]>(initialThreads);
@@ -460,10 +453,7 @@ export default function ProjectWorkspace({
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
-        projectId={projectId}
-        revisions={revisions}
-        activeRevisionId={activeRevisionId}
-        currentThreads={threads}
+        threads={threads}
         onJump={handleSelectPin}
       />
 

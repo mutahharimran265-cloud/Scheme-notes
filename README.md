@@ -15,9 +15,8 @@ Getting feedback on a schematic today means either emailing a screenshot and rec
 - **Upload** PNG, JPG, SVG, PDF — or a native **KiCad `.kicad_sch`**, which is auto‑rendered to SVG on the server (plus exports from any tool, or a photo of a whiteboard sketch).
 - **Pan & zoom** viewer with fit‑to‑screen. PDFs render their first page to a crisp canvas.
 - **Click‑to‑pin comments** stored as a **percentage** of the image, so pins stay put through zoom and resize.
-- **Named revisions** — upload "rev B" onto the same project; outstanding comments **carry over with their pins and authors**, so nothing gets lost between spins. Switch revisions from the project header.
 - **Threaded discussions** with an **Open / In review / Resolved / Won't-fix** workflow — reply to any pin and triage like a GitHub PR conversation.
-- **Instant search (Ctrl/Cmd+K)** across every revision — full-text over comments and replies, `#tag` filters, status + revision filters, jump straight to the pin.
+- **Instant search (Ctrl/Cmd+K)** — full-text over comments and replies, `#tag` filters, and status filters; jump straight to the pin.
 - **Component linking** — tie a comment to a designator/net (`R12`, `NET_VBUS`), part number, and datasheet link; tag comments for grouping (`power`, `emi`).
 - **Markdown + pasted images** — paste a scope capture or board photo straight into any comment box; bodies render as GFM markdown (lists, code, tables). Images stay local; remote images are never fetched.
 - **Scriptable REST API** — personal tokens (dashboard → API tokens) let a test rig or CI auto-log pinned annotations, bypassing rate limits. See [`docs/API.md`](docs/API.md).
@@ -169,7 +168,7 @@ With the dev server running:
 node scripts/smoke.mjs samples/sample-schematic.svg
 ```
 
-Exercises the full comment lifecycle, the status workflow, revisions + carry‑over, tags/component metadata, ownership‑token enforcement, input validation, cascade delete, and the magic‑link auth + project‑ownership chain (38 assertions), cleaning up after itself.
+Exercises the full comment lifecycle, the status workflow, tags/component metadata, image attachments, API tokens, ownership‑token enforcement, input validation, cascade delete, and the magic‑link auth + project‑ownership chain (38 assertions), cleaning up after itself.
 
 ---
 
