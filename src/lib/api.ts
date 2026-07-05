@@ -12,12 +12,21 @@ function authHeaders(): Record<string, string> {
 }
 
 export async function fetchThreads(fileId: string): Promise<ThreadDTO[]> {
-  const res = await fetch(`/api/comments?fileId=${encodeURIComponent(fileId)}`, {
-    headers: { "x-author-token": getAuthorToken() },
-    cache: "no-store",
-  });
-  const data = await parse(res);
-  return data.threads as ThreadDTO[];
+  // The API pages at 100 threads; aggregate every page so large reviews
+  // (100+ annotations) never silently truncate.
+  const limit = 100;
+  const all: ThreadDTO[] = [];
+  for (let page = 1; page <= 50; page++) {
+    const res = await fetch(
+      `/api/comments?fileId=${encodeURIComponent(fileId)}&page=${page}&limit=${limit}`,
+      { headers: { "x-author-token": getAuthorToken() }, cache: "no-store" },
+    );
+    const data = await parse(res);
+    const batch = data.threads as ThreadDTO[];
+    all.push(...batch);
+    if (batch.length < limit) break;
+  }
+  return all;
 }
 
 export async function createThread(input: {

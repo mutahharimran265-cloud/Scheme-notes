@@ -38,12 +38,16 @@ Getting feedback on a schematic today means either emailing a screenshot and rec
 
 **Prerequisites:** Node.js 20+ and npm. (Optional: install [KiCad](https://www.kicad.org/) if you want to upload native `.kicad_sch` files — it's used to render them.)
 
+**Easiest:** double-click **`START-SCHEMNOTES.bat`** (Windows) or run **`./start-schemnotes.sh`** (macOS/Linux). The launcher checks Node.js is installed, checks port 3000 is free, installs dependencies, **backs up the database**, applies migrations — stopping with a clear message if any step fails — and opens the browser only once the server actually responds.
+
+Or manually:
+
 ```bash
 # 1. Install dependencies (also generates the Prisma client + copies the pdf.js worker)
 npm install
 
-# 2. Create the local SQLite database
-npx prisma migrate dev
+# 2. Create the local SQLite database (backs up an existing one first)
+npm run db:migrate
 
 # 3. Run the dev server
 npm run dev
@@ -141,7 +145,16 @@ scripts/
 | `npm run build` | Production build (runs `prisma generate` first) |
 | `npm start` | Serve the production build |
 | `npm run seed` | Seed a demo project (server must be running) |
+| `npm run backup` | Back up the SQLite database to `prisma/backups/` |
+| `npm run db:migrate` | Back up the database, then run `prisma migrate dev` |
 | `npm run lint` | ESLint |
+
+## Data safety
+
+- **Automatic backups** — the launchers and `npm run db:migrate` copy `prisma/dev.db` into `prisma/backups/` (rolling, newest 10 kept) *before* any migration touches it.
+- **Export everything** — the **Export data** button on the dashboard (or `GET /api/export` on a local install) downloads a zip of all projects, comments, and schematic files (including native KiCad originals). Your data is never locked in.
+- **Undo windows** — deleting a comment, thread, or project shows an Undo toast; the deletion only executes after the window passes.
+- **Local-first, permanently** — every core annotation feature works fully offline with no network dependency.
 
 ### End‑to‑end test
 
@@ -151,7 +164,7 @@ With the dev server running:
 node scripts/smoke.mjs samples/sample-schematic.svg
 ```
 
-Exercises the full comment lifecycle, ownership‑token enforcement, input validation, cascade delete, and the magic‑link auth + ownership chain (21 assertions), cleaning up after itself.
+Exercises the full comment lifecycle, the status workflow, ownership‑token enforcement, input validation, cascade delete, and the magic‑link auth + project‑ownership chain (25 assertions), cleaning up after itself.
 
 ---
 

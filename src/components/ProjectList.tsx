@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { deleteProject, updateProject } from "@/lib/api";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Toast } from "./Toast";
@@ -18,18 +18,55 @@ export function ProjectList({ initialCards }: { initialCards: ProjectData[] }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<{
+    message: string;
+    durationMs?: number;
+    actionLabel?: string;
+    onAction?: () => void;
+  } | null>(null);
+  const pendingRef = useRef<{ timer: number; commit: () => void } | null>(null);
 
-  const handleDelete = async () => {
+  // Deletion runs after a short undo window; the API call only fires when the
+  // window elapses (or a newer delete flushes it).
+  const handleDelete = () => {
     if (!deletingId) return;
     const id = deletingId;
     setDeletingId(null);
-    try {
-      await deleteProject(id);
-      setCards((prev) => prev.filter((c) => c.project.id !== id));
-    } catch {
-      setToast("Couldn't delete the project.");
+
+    const pending = pendingRef.current;
+    if (pending) {
+      window.clearTimeout(pending.timer);
+      pendingRef.current = null;
+      pending.commit();
     }
+
+    const snapshot = cards;
+    setCards((prev) => prev.filter((c) => c.project.id !== id));
+
+    const commit = () => {
+      deleteProject(id).catch(() => {
+        setCards(snapshot);
+        setToast({ message: "Couldn't delete the project — restored.", durationMs: 3000 });
+      });
+    };
+    const timer = window.setTimeout(() => {
+      pendingRef.current = null;
+      setToast(null);
+      commit();
+    }, 6000);
+    pendingRef.current = { timer, commit };
+
+    setToast({
+      message: "Project deleted.",
+      durationMs: 0,
+      actionLabel: "Undo",
+      onAction: () => {
+        window.clearTimeout(timer);
+        pendingRef.current = null;
+        setCards(snapshot);
+        setToast(null);
+      },
+    });
   };
 
   const commitRename = async () => {
@@ -54,7 +91,7 @@ export function ProjectList({ initialCards }: { initialCards: ProjectData[] }) {
             : c,
         ),
       );
-      setToast("Couldn't rename the project.");
+      setToast({ message: "Couldn't rename the project.", durationMs: 3000 });
     }
   };
 
@@ -172,12 +209,20 @@ export function ProjectList({ initialCards }: { initialCards: ProjectData[] }) {
       {deletingId && (
         <ConfirmDialog
           title="Delete project?"
-          description="This will permanently delete the schematic and all comments. This action cannot be undone."
+          description="This deletes the schematic and all its comments. You'll have a few seconds to undo."
           onConfirm={handleDelete}
           onCancel={() => setDeletingId(null)}
         />
       )}
-      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
+      {toast && (
+        <Toast
+          message={toast.message}
+          durationMs={toast.durationMs}
+          actionLabel={toast.actionLabel}
+          onAction={toast.onAction}
+          onClose={() => setToast(null)}
+        />
+      )}
     </>
   );
 }

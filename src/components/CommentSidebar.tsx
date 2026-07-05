@@ -14,6 +14,7 @@ type Props = {
   filter: ThreadFilter;
   onFilterChange: (f: ThreadFilter) => void;
   onSelect: (id: string) => void;
+  onExport: () => void;
 };
 
 function lastActivity(t: ThreadDTO): number {
@@ -27,6 +28,7 @@ export default function CommentSidebar({
   filter,
   onFilterChange,
   onSelect,
+  onExport,
 }: Props) {
   const counts = {
     all: threads.length,
@@ -34,6 +36,9 @@ export default function CommentSidebar({
     resolved: threads.filter((t) => statusOf(t) === "resolved").length,
     wontfix: threads.filter((t) => statusOf(t) === "wontfix").length,
   };
+  const total = threads.length;
+  const addressed = total - counts.open;
+  const pct = total ? Math.round((addressed / total) * 100) : 0;
 
   const visible = threads
     .filter((t) => (filter === "all" ? true : statusOf(t) === filter))
@@ -54,10 +59,40 @@ export default function CommentSidebar({
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
-        <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          Comments
-        </h2>
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+            Comments
+          </h2>
+          <button
+            onClick={onExport}
+            title="Copy the review as a Markdown checklist"
+            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+          >
+            <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+            </svg>
+            Export
+          </button>
+        </div>
+
+        {total > 0 && (
+          <div className="mt-2.5">
+            <div className="flex justify-between text-[11px] text-zinc-400">
+              <span>
+                {addressed} of {total} addressed
+              </span>
+              <span>{pct}%</span>
+            </div>
+            <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-emerald-500 transition-all"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="mt-2.5 flex flex-wrap gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -146,6 +181,26 @@ export default function CommentSidebar({
           </ul>
         )}
       </div>
+
+      <div className="hidden shrink-0 items-center gap-1.5 border-t border-zinc-200 px-4 py-2 text-[11px] text-zinc-400 lg:flex dark:border-zinc-800">
+        <Kbd>J</Kbd>
+        <Kbd>K</Kbd>
+        <span>navigate</span>
+        <span className="mx-1 opacity-40">·</span>
+        <Kbd>R</Kbd>
+        <span>resolve</span>
+        <span className="mx-1 opacity-40">·</span>
+        <Kbd>Esc</Kbd>
+        <span>close</span>
+      </div>
     </div>
+  );
+}
+
+function Kbd({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-zinc-200 bg-zinc-50 px-1.5 py-0.5 font-mono text-[10px] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+      {children}
+    </kbd>
   );
 }

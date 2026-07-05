@@ -57,6 +57,7 @@ export default function SchematicViewer({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const apiRef = useRef<ReactZoomPanPinchContentRef | null>(null);
   const downRef = useRef<{ x: number; y: number } | null>(null);
+  const scaleRef = useRef(1);
 
   const [pdfState, setPdfState] = useState<"loading" | "ready" | "error">(
     isPdf ? "loading" : "ready",
@@ -86,6 +87,31 @@ export default function SchematicViewer({
     setInvScale(scale);
     setTick((t) => t + 1);
   }, [setInvScale]);
+
+  // Pan + zoom to center a specific pin (used by sidebar / keyboard navigation).
+  const focusPin = useCallback((xPct: number, yPct: number) => {
+    const wrap = containerRef.current;
+    const el = mediaRef.current;
+    const api = apiRef.current;
+    if (!wrap || !el || !api) return;
+    const cw = wrap.clientWidth;
+    const ch = wrap.clientHeight;
+    const mw = el.offsetWidth;
+    const mh = el.offsetHeight;
+    if (!mw || !mh) return;
+    const scale = Math.max(scaleRef.current, 1.4);
+    const px = (xPct / 100) * mw;
+    const py = (yPct / 100) * mh;
+    api.setTransform(cw / 2 - px * scale, ch / 2 - py * scale, scale, 350);
+  }, []);
+
+  // When a comment becomes active, bring its pin into view.
+  useEffect(() => {
+    if (!activeId) return;
+    const pin = pins.find((p) => p.id === activeId);
+    if (pin) focusPin(pin.x, pin.y);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   // Render the first page of a PDF onto the canvas.
   useEffect(() => {
@@ -192,6 +218,7 @@ export default function SchematicViewer({
           if (!isPdf) requestAnimationFrame(fitView);
         }}
         onTransform={(_ref, state) => {
+          scaleRef.current = state.scale;
           setInvScale(state.scale);
           setTick((t) => t + 1);
         }}

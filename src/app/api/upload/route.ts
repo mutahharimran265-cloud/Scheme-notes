@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
   if (fileType === "png" && header.startsWith("89504e47")) isValid = true;
   else if (fileType === "jpg" && header.startsWith("ffd8")) isValid = true;
   else if (fileType === "pdf" && header.startsWith("25504446")) isValid = true;
-  else if (fileType === "svg" && bytes.toString("utf8", 0, 100).includes("<svg")) isValid = true;
+  else if (fileType === "svg" && bytes.toString("utf8", 0, 1024).toLowerCase().includes("<svg")) isValid = true;
   else if (fileType === "kicad_sch") isValid = true; // Harder to check magic bytes, rely on CLI parsing later
 
   if (!isValid) {

@@ -40,9 +40,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# database (sqlite, local dev)
+# database (sqlite, local dev) + local rolling backups
 /prisma/*.db
 /prisma/*.db-journal
+/prisma/backups/
 
 # uploaded schematics (keep the folder, ignore its contents)
 /public/uploads/*
