@@ -95,6 +95,23 @@ built and ready.)
 
 ---
 
+## Cloud sync between installs (push / pull)
+
+A Pro account can sync its workspace between a local install and a cloud
+instance — no shared database required:
+
+1. Deploy one instance as your **cloud** (Postgres, per above).
+2. On the cloud instance: sign in → **Dashboard → API tokens** → create a token
+   (it's owned by your account).
+3. On your **local** install: sign in → **Cloud sync** panel → paste the cloud
+   URL + that token → **Push** (local → cloud) or **Pull** (cloud → local).
+
+Sync replaces the whole workspace (last write wins) and carries the schematic
+files. Endpoints: `GET`/`PUT /api/sync` (API-token-authed — the cloud side) and
+`POST /api/cloud/sync` (session-authed — the local side). Both are Pro-gated.
+
+---
+
 ## Notes
 
 - **Migrations:** local dev uses Prisma migrations (`npm run db:migrate`). The

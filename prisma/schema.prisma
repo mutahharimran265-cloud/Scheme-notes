@@ -91,13 +91,27 @@ model Comment {
   @@index([carriedFromId])
 }
 
-// Personal access tokens for the scriptable local REST API (Phase 2 item 7).
+// Personal access tokens for the scriptable REST API + cloud sync. `email` is
+// the owner (set when created while signed in) — it lets a cloud instance
+// authenticate a sync client as a specific account.
 model ApiToken {
   id         String    @id @default(cuid())
   tokenHash  String    @unique
   label      String
+  email      String?
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
+}
+
+// Where an account's local install pushes/pulls its cloud copy. One row per
+// signed-in email; cloudToken is an API token minted on the cloud instance.
+model SyncConfig {
+  email      String    @id
+  cloudUrl   String
+  cloudToken String
+  lastSyncAt DateTime?
+  lastError  String?
+  updatedAt  DateTime  @updatedAt
 }
 
 // Per-user billing plan, keyed by (normalized) email. A row is created/updated

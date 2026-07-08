@@ -10,6 +10,7 @@ import { ProjectList } from "@/components/ProjectList";
 import ExportButton from "@/components/ExportButton";
 import ApiTokens from "@/components/ApiTokens";
 import UpgradeButton from "@/components/UpgradeButton";
+import CloudSync from "@/components/CloudSync";
 
 export const dynamic = "force-dynamic";
 
@@ -44,8 +45,9 @@ function CloudSyncCard({
       <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 text-sm dark:border-indigo-900/60 dark:bg-indigo-950/30">
         <p className="font-semibold text-indigo-800 dark:text-indigo-300">Cloud sync ready</p>
         <p className="text-indigo-700/80 dark:text-indigo-300/70">
-          Your plan includes cloud sync. Deploy SchemNotes with a cloud database (Postgres) to make
-          your projects available across devices — see <code className="rounded bg-white px-1 py-0.5 text-xs dark:bg-zinc-900">DEPLOY.md</code>.
+          Your plan includes cloud sync. Push this workspace to a cloud instance from the sync
+          panel below, or deploy with a shared Postgres database for automatic multi-device access
+          (see <code className="rounded bg-white px-1 py-0.5 text-xs dark:bg-zinc-900">DEPLOY.md</code>).
         </p>
       </div>
     );
@@ -204,6 +206,8 @@ export default async function DashboardPage() {
       )}
 
       <ProjectList initialCards={cards} />
+
+      {cloudSyncEnabled(plan) && <CloudSync />}
 
       <ApiTokens enabled={hasFeature("api_tokens", plan)} />
     </main>
