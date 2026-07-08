@@ -3,26 +3,28 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { getSessionEmail, hashToken } from "@/lib/auth";
 import { cleanText } from "@/lib/comments";
-import { hasFeature } from "@/lib/entitlements";
+import { hasFeatureForEmail } from "@/lib/plan";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
-// Scriptable API tokens are a Pro feature. Beyond that, management follows the
-// export rule: open on a local install (it's the machine owner's data),
-// session-gated when hosted. Returns an error response to send, or null if OK.
+// Scriptable API tokens are a Pro feature, resolved per signed-in account (or
+// the deployment plan on a local install). Management otherwise follows the
+// export rule: open locally (the machine owner's data), session-gated when
+// hosted. Returns an error response to send, or null if OK.
 async function guard(req: NextRequest): Promise<NextResponse | null> {
-  if (!hasFeature("api_tokens")) {
+  const email = await getSessionEmail();
+  const authed = LOCAL_HOSTS.has(req.nextUrl.hostname) || Boolean(email);
+  if (!authed) {
+    return NextResponse.json({ error: "Sign in to manage API tokens." }, { status: 401 });
+  }
+  if (!(await hasFeatureForEmail("api_tokens", email))) {
     return NextResponse.json(
       { error: "API tokens are a Pro feature. Upgrade to script the review API." },
       { status: 402 },
     );
-  }
-  const authed = LOCAL_HOSTS.has(req.nextUrl.hostname) || Boolean(await getSessionEmail());
-  if (!authed) {
-    return NextResponse.json({ error: "Sign in to manage API tokens." }, { status: 401 });
   }
   return null;
 }

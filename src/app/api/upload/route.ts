@@ -4,6 +4,7 @@ import { getSessionEmail } from "@/lib/auth";
 import { isRateLimited } from "@/lib/rate-limit";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { storeSchematicUpload, UploadError } from "@/lib/uploads";
+import { hasFeatureForEmail } from "@/lib/plan";
 
 // File writes + kicad-cli need the Node.js runtime (not Edge).
 export const runtime = "nodejs";
@@ -27,6 +28,21 @@ export async function POST(req: NextRequest) {
   const { limited } = isRateLimited(`uploads:${identifier}`, 10, 60 * 1000);
   if (limited) {
     return NextResponse.json({ error: "Too many uploads. Please wait." }, { status: 429 });
+  }
+
+  // Rendering native KiCad (.kicad_sch) is a Pro feature; PNG/JPG/PDF/SVG stay
+  // free. Set SCHEMNOTES_PLAN=pro (or upgrade the account) to unlock.
+  const upload = form.get("file");
+  const ext =
+    upload instanceof File ? upload.name.split(".").pop()?.toLowerCase() : undefined;
+  if (ext === "kicad_sch" && !(await hasFeatureForEmail("kicad_rendering", sessionEmail))) {
+    return NextResponse.json(
+      {
+        error:
+          "Native KiCad (.kicad_sch) rendering is a Pro feature. Upgrade, or upload a PDF/SVG export.",
+      },
+      { status: 402 },
+    );
   }
 
   let stored;

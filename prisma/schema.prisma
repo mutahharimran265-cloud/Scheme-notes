@@ -99,3 +99,16 @@ model ApiToken {
   createdAt  DateTime  @default(now())
   lastUsedAt DateTime?
 }
+
+// Per-user billing plan, keyed by (normalized) email. A row is created/updated
+// by the Stripe webhook on checkout. No row = free. The deployment-wide
+// SCHEMNOTES_PLAN env acts as a floor/override — see src/lib/plan.ts.
+model Account {
+  email                String    @id
+  plan                 String    @default("free") // free | pro | team
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
+  currentPeriodEnd     DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+}

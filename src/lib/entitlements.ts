@@ -18,12 +18,18 @@ export type Feature =
   | "cloud_sync"
   | "cloud_backup"
   | "api_tokens"
+  | "kicad_rendering"
   | "shared_workspaces"
   | "roles_permissions"
   | "notifications"
   | "integrations";
 
-const PRO_FEATURES: readonly Feature[] = ["cloud_sync", "cloud_backup", "api_tokens"];
+const PRO_FEATURES: readonly Feature[] = [
+  "cloud_sync",
+  "cloud_backup",
+  "api_tokens",
+  "kicad_rendering",
+];
 const TEAM_FEATURES: readonly Feature[] = [
   ...PRO_FEATURES,
   "shared_workspaces",
