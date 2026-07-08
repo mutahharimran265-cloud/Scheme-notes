@@ -142,7 +142,7 @@ export default function Home() {
             </div>
           </div>
           <p className="mt-3 text-center text-xs text-foreground/40">
-            Free forever for solo use · runs fully offline · your data stays on your machine
+            5 free uploads a month · runs fully offline · your data stays on your machine
           </p>
         </div>
 
@@ -192,8 +192,9 @@ export default function Home() {
               Simple pricing
             </h2>
             <p className="mt-3 text-foreground/60">
-              The full review tool is free and local, forever. Paid plans add
-              cloud sync and team collaboration when you need them.
+              The full review tool is free and local — every format, including
+              KiCad. Free covers 5 uploads a month; paid plans add unlimited
+              uploads, cloud sync, and team collaboration.
             </p>
           </div>
 
@@ -203,9 +204,9 @@ export default function Home() {
               price="$0"
               tagline="Everything to review schematics solo."
               features={[
-                "Unlimited projects & comments",
+                "5 schematic uploads / month",
                 "KiCad, PDF, SVG & image upload",
-                "Status workflow + ⌘K search",
+                "Unlimited comments, status + ⌘K search",
                 "Markdown notes & pasted images",
                 "Export all data, automatic backups",
                 "Fully offline — data never leaves your machine",
@@ -220,6 +221,7 @@ export default function Home() {
               tagline="For engineers across machines."
               features={[
                 "Everything in Free",
+                "Unlimited schematic uploads",
                 "Cloud sync across devices",
                 "Scriptable API tokens & REST access",
                 "Cloud backup",

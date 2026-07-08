@@ -4,6 +4,7 @@ import { getSessionEmail } from "@/lib/auth";
 import { isRateLimited } from "@/lib/rate-limit";
 import { sanitizeHtml } from "@/lib/sanitize";
 import { storeSchematicUpload, UploadError } from "@/lib/uploads";
+import { uploadAllowance } from "@/lib/plan";
 
 // File writes + kicad-cli need the Node.js runtime (not Edge).
 export const runtime = "nodejs";
@@ -27,6 +28,18 @@ export async function POST(req: NextRequest) {
   const { limited } = isRateLimited(`uploads:${identifier}`, 10, 60 * 1000);
   if (limited) {
     return NextResponse.json({ error: "Too many uploads. Please wait." }, { status: 429 });
+  }
+
+  // Free tier is capped by volume (uploads/month); paid plans are unlimited.
+  // Every file format — including native KiCad — is available on all plans.
+  const { allowed, used, limit } = await uploadAllowance(sessionEmail);
+  if (!allowed) {
+    return NextResponse.json(
+      {
+        error: `You've used all ${limit} free uploads this month (${used}/${limit}). Upgrade to Pro for unlimited uploads.`,
+      },
+      { status: 402 },
+    );
   }
 
   let stored;

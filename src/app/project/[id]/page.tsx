@@ -75,6 +75,7 @@ export default async function ProjectPage({
             fileId={file.id}
             fileUrl={file.fileUrl}
             fileType={file.fileType}
+            title={project.title}
             initialThreads={initialThreads}
             focusCommentId={focus}
           />

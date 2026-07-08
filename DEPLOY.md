@@ -56,10 +56,59 @@ The container runs `prisma db push` on start to create/sync the schema, then
 | `SCHEMNOTES_PLAN` | no | `pro` | `free` (default), `pro`, or `team`. Unlocks cloud sync + API tokens for the deployment. |
 | `KICAD_CLI` | no | path to `kicad-cli` | Enables native `.kicad_sch` rendering. Not in the default image — install KiCad in a custom image, or upload PDF/SVG. |
 
-> **Plan / billing:** `SCHEMNOTES_PLAN` gates the paid features at the
-> deployment level. Per-user billing (Stripe/Gumroad → per-account plans) is
-> not wired here — resolve the plan from your billing system in
-> `getPlan()` (`src/lib/entitlements.ts`) when you add checkout.
+> **Plans:** `SCHEMNOTES_PLAN` sets a deployment-wide floor — for self-hosting,
+> set it to `pro` to unlock everything. For multi-tenant SaaS, leave it `free`
+> and let per-account Stripe subscriptions drive access (see Payments below).
+
+---
+
+## Email (magic-link sign-in)
+
+Sign-in links are emailed over **SMTP** — works with any provider (Gmail app
+password, Resend, SendGrid, Postmark, Mailgun, …). Set:
+
+```
+SMTP_HOST  SMTP_PORT  SMTP_SECURE  SMTP_USER  SMTP_PASS  SMTP_FROM
+APP_ORIGIN=https://schemnotes.example.com   # so links point at your public URL
+```
+
+Without SMTP the link is written to the server log (and returned in dev) so the
+app still runs — but hosted users can't receive it, so configure SMTP in
+production.
+
+## Payments (Stripe subscriptions)
+
+Upgrades run through Stripe Checkout; a webhook flips the account to Pro/Team.
+
+1. Create two recurring **Prices** in Stripe (Pro, Team); copy their ids.
+2. Set `STRIPE_SECRET_KEY`, `STRIPE_PRICE_PRO`, `STRIPE_PRICE_TEAM`.
+3. Add a **webhook** to `POST /api/billing/webhook` for `checkout.session.completed`,
+   `customer.subscription.updated`, `customer.subscription.deleted`, and set
+   `STRIPE_WEBHOOK_SECRET`. Local testing:
+   `stripe listen --forward-to localhost:3000/api/billing/webhook`.
+4. Signed-in users then see **Upgrade to Pro** on the dashboard → Stripe
+   Checkout → the webhook writes `Account.plan`, which `getPlanForEmail()` reads.
+
+Without Stripe env, the upgrade UI stays hidden and plans fall back to
+`SCHEMNOTES_PLAN`. (You add your own Stripe account + keys — the integration is
+built and ready.)
+
+---
+
+## Cloud sync between installs (push / pull)
+
+A Pro account can sync its workspace between a local install and a cloud
+instance — no shared database required:
+
+1. Deploy one instance as your **cloud** (Postgres, per above).
+2. On the cloud instance: sign in → **Dashboard → API tokens** → create a token
+   (it's owned by your account).
+3. On your **local** install: sign in → **Cloud sync** panel → paste the cloud
+   URL + that token → **Push** (local → cloud) or **Pull** (cloud → local).
+
+Sync replaces the whole workspace (last write wins) and carries the schematic
+files. Endpoints: `GET`/`PUT /api/sync` (API-token-authed — the cloud side) and
+`POST /api/cloud/sync` (session-authed — the local side). Both are Pro-gated.
 
 ---
 

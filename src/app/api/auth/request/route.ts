@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signToken, MAGIC_TTL, isValidEmail, normalizeEmail } from "@/lib/auth";
+import { isEmailConfigured, sendMagicLink } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 
@@ -17,10 +18,22 @@ export async function POST(req: NextRequest) {
   const origin = process.env.APP_ORIGIN?.trim() || req.nextUrl.origin;
   const link = `${origin}/api/auth/verify?token=${encodeURIComponent(token)}`;
 
-  // In production, send this link by email (Resend, Postmark, SMTP, …).
-  // For local dev we log it and return it so you can click through immediately.
-  console.log(`\n🔗 SchemNotes sign-in link for ${email}:\n${link}\n`);
+  // Send by email when SMTP is configured; otherwise fall back to logging the
+  // link (and, in dev, returning it) so the app works with zero email setup.
+  if (isEmailConfigured()) {
+    try {
+      await sendMagicLink(email, link);
+    } catch (err) {
+      console.error("Magic-link email failed:", err);
+      return NextResponse.json(
+        { error: "Couldn't send the sign-in email. Please try again shortly." },
+        { status: 502 },
+      );
+    }
+    return NextResponse.json({ ok: true, sent: true });
+  }
 
+  console.log(`\n🔗 SchemNotes sign-in link for ${email}:\n${link}\n`);
   const isDev = process.env.NODE_ENV !== "production";
   return NextResponse.json({ ok: true, ...(isDev ? { devLink: link } : {}) });
 }
