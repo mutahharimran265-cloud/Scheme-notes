@@ -3,7 +3,7 @@
 // by billing, keyed by the signed-in email.
 
 import { prisma } from "./prisma";
-import { getPlan, hasFeature, type Plan, type Feature } from "./entitlements";
+import { getPlan, hasFeature, planLimits, type Plan, type Feature } from "./entitlements";
 
 const RANK: Record<Plan, number> = { free: 0, pro: 1, team: 2 };
 
@@ -36,4 +36,32 @@ export async function hasFeatureForEmail(
   email: string | null,
 ): Promise<boolean> {
   return hasFeature(feature, await getPlanForEmail(email));
+}
+
+/** Start of the current calendar month (UTC) — the upload-quota window. */
+export function monthStart(now = new Date()): Date {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+}
+
+export type UploadAllowance = {
+  used: number;
+  limit: number | null; // null = unlimited
+  allowed: boolean;
+};
+
+/**
+ * Monthly upload quota for a signed-in account. Free is capped by volume; paid
+ * plans are unlimited. The cap is per-account (by email) — anonymous "try it"
+ * uploads (no session) are not counted, since a global null-owner counter would
+ * be shared across everyone on a hosted deploy. Counts projects created this
+ * calendar month.
+ */
+export async function uploadAllowance(email: string | null): Promise<UploadAllowance> {
+  const plan = await getPlanForEmail(email);
+  const { maxUploadsPerMonth: limit } = planLimits(plan);
+  if (limit === null || !email) return { used: 0, limit: null, allowed: true };
+  const used = await prisma.project.count({
+    where: { ownerEmail: email, createdAt: { gte: monthStart() } },
+  });
+  return { used, limit, allowed: used < limit };
 }

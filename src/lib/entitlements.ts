@@ -8,9 +8,12 @@
 //     lock users out of their own data.
 //   - Additive power / cloud / team capabilities live here and require a plan.
 //     "api_tokens" (scriptable REST access) is a Pro power feature; the free
-//     tier keeps the full interactive review experience.
-//   - Server code must check hasFeature() before serving a gated capability;
-//     client code may also check it, but only for UI (never as the guard).
+//     tier keeps the full interactive review experience on every file format
+//     (including native KiCad).
+//   - The free tier is limited by VOLUME, not capability — see planLimits()
+//     (uploads per month). Server code must check hasFeature()/planLimits()
+//     before serving a gated capability; client code may also check, but only
+//     for UI (never as the guard).
 
 export type Plan = "free" | "pro" | "team";
 
@@ -18,7 +21,6 @@ export type Feature =
   | "cloud_sync"
   | "cloud_backup"
   | "api_tokens"
-  | "kicad_rendering"
   | "shared_workspaces"
   | "roles_permissions"
   | "notifications"
@@ -28,7 +30,6 @@ const PRO_FEATURES: readonly Feature[] = [
   "cloud_sync",
   "cloud_backup",
   "api_tokens",
-  "kicad_rendering",
 ];
 const TEAM_FEATURES: readonly Feature[] = [
   ...PRO_FEATURES,
@@ -57,4 +58,20 @@ export function getPlan(): Plan {
 
 export function hasFeature(feature: Feature, plan: Plan = getPlan()): boolean {
   return PLAN_FEATURES[plan].includes(feature);
+}
+
+// Volume limits (the free tier is capped by quantity, not capability).
+// `maxUploadsPerMonth: null` means unlimited.
+export type PlanLimits = { maxUploadsPerMonth: number | null };
+
+export const FREE_UPLOADS_PER_MONTH = 5;
+
+const PLAN_LIMITS: Record<Plan, PlanLimits> = {
+  free: { maxUploadsPerMonth: FREE_UPLOADS_PER_MONTH },
+  pro: { maxUploadsPerMonth: null },
+  team: { maxUploadsPerMonth: null },
+};
+
+export function planLimits(plan: Plan = getPlan()): PlanLimits {
+  return PLAN_LIMITS[plan];
 }

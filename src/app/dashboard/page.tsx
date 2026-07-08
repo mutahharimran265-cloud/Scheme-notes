@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getSessionEmail } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasFeature } from "@/lib/entitlements";
-import { getPlanForEmail } from "@/lib/plan";
+import { getPlanForEmail, uploadAllowance } from "@/lib/plan";
 import { cloudSyncActive, cloudSyncEnabled } from "@/lib/cloud";
 import { isBillingConfigured } from "@/lib/stripe";
 import { ProjectList } from "@/components/ProjectList";
@@ -55,7 +55,7 @@ function CloudSyncCard({
     <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900/50">
       <div>
         <p className="font-semibold text-zinc-700 dark:text-zinc-200">Cloud sync <span className="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">Pro</span></p>
-        <p className="text-zinc-500">Work across machines — your projects on every device, plus native KiCad rendering and the scriptable API.</p>
+        <p className="text-zinc-500">Work across machines — your projects on every device, unlimited uploads, plus the scriptable API.</p>
       </div>
       {billingConfigured ? (
         <UpgradeButton plan="pro" label="Upgrade to Pro" />
@@ -68,12 +68,64 @@ function CloudSyncCard({
   );
 }
 
+function UploadUsageCard({
+  used,
+  limit,
+  billingConfigured,
+}: {
+  used: number;
+  limit: number;
+  billingConfigured: boolean;
+}) {
+  const pct = Math.min(100, Math.round((used / limit) * 100));
+  const atLimit = used >= limit;
+  const left = Math.max(0, limit - used);
+  return (
+    <div className="mb-6 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900/50">
+      <div className="flex items-center justify-between text-sm">
+        <p className="font-semibold text-zinc-700 dark:text-zinc-200">Uploads this month</p>
+        <p className={atLimit ? "font-semibold text-red-600" : "text-zinc-500"}>
+          {used} / {limit}
+        </p>
+      </div>
+      <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
+        <div
+          className={`h-full rounded-full ${atLimit ? "bg-red-500" : "bg-indigo-500"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-zinc-500">
+          {atLimit
+            ? "You've hit the free monthly limit — Pro is unlimited."
+            : `${left} left on the free plan this month. Pro is unlimited.`}
+        </p>
+        {billingConfigured ? (
+          <UpgradeButton
+            plan="pro"
+            label="Upgrade for unlimited"
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-60"
+          />
+        ) : (
+          <Link
+            href="/#pricing"
+            className="rounded-lg border border-indigo-300 px-3 py-1.5 text-xs font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+          >
+            See plans →
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default async function DashboardPage() {
   const email = await getSessionEmail();
   if (!email) redirect("/login");
 
   const plan = await getPlanForEmail(email);
   const billingConfigured = isBillingConfigured();
+  const usage = await uploadAllowance(email);
 
   const projects = await prisma.project.findMany({
     where: { ownerEmail: email },
@@ -142,6 +194,14 @@ export default async function DashboardPage() {
         syncEnabled={cloudSyncEnabled(plan)}
         billingConfigured={billingConfigured}
       />
+
+      {usage.limit !== null && (
+        <UploadUsageCard
+          used={usage.used}
+          limit={usage.limit}
+          billingConfigured={billingConfigured}
+        />
+      )}
 
       <ProjectList initialCards={cards} />
 
