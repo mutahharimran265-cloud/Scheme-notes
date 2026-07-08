@@ -43,6 +43,37 @@ schematics), so restarts keep your projects and files.
 The container runs `prisma db push` on start to create/sync the schema, then
 `next start`.
 
+## Option C — Free forever, always-on, keeps your data (Oracle Cloud Always Free)
+
+Free PaaS tiers wipe uploaded files on restart or expire the database. To run in
+the cloud for free **without** losing data, use a free VM and the Compose stack
+from Option A — the data lives in named volumes on the VM's own disk, so nothing
+is ever deleted.
+
+**Oracle Cloud "Always Free"** gives a real VM (Ampere ARM, up to ~24 GB RAM) +
+200 GB disk that stay free indefinitely:
+
+1. Sign up at cloud.oracle.com. A card is required for identity verification,
+   but Always Free resources are never charged.
+2. Create an **Always Free** Compute instance (shape *VM.Standard.A1.Flex*,
+   image *Ubuntu 22.04*).
+3. Allow the app port: add an **ingress rule for TCP 3000** to the instance's
+   subnet security list, and open it on the VM's own firewall.
+4. Install Docker: `curl -fsSL https://get.docker.com | sudo sh`.
+5. Copy this repo onto the VM, then run Option A there:
+   `echo "AUTH_SECRET=$(openssl rand -hex 32)" > .env && sudo docker compose up -d --build`
+6. Open `http://<vm-public-ip>:3000`. Add a domain + HTTPS later with a reverse
+   proxy (Caddy does it in ~3 lines).
+
+Postgres data and uploaded schematics sit in Docker volumes on the VM's disk —
+they survive restarts and reboots and are never auto-deleted.
+
+**No card, or want it even simpler?** Run Option A on any computer you leave on
+(an old laptop, a Raspberry Pi) and expose it with a free **Cloudflare Tunnel**
+(`cloudflared tunnel --url http://localhost:3000`) — your data stays on your own
+disk. A small always-on **VPS** (Hetzner / DigitalOcean, ~$4–5/mo) runs the exact
+same `docker compose up` if you'd rather not use your own hardware.
+
 ---
 
 ## Environment variables
