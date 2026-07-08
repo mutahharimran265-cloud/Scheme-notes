@@ -31,6 +31,32 @@ docker compose up --build
 Data persists in named volumes (`db-data` for Postgres, `uploads` for uploaded
 schematics), so restarts keep your projects and files.
 
+### Using a managed Postgres (Neon, Supabase, …)
+
+If your database is already hosted (e.g. **Neon**), skip the bundled Postgres
+and run just the app container against it — you only need a volume for uploaded
+files:
+
+```bash
+docker build -t schemnotes .
+docker run -d -p 3000:3000 \
+  -v schemnotes-uploads:/app/public/uploads \
+  -e DB_PROVIDER=postgresql \
+  -e DATABASE_URL="postgresql://USER:PASSWORD@ep-xxx.REGION.aws.neon.tech/DB?sslmode=require" \
+  -e AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e SCHEMNOTES_PLAN=pro \
+  schemnotes
+```
+
+The container creates the tables in your Neon database on first start. Use
+Neon's **direct** (non-pooled) connection string. Your data lives in Neon plus
+the `schemnotes-uploads` volume — nothing is deleted. Run this on any host with
+a disk (an Oracle Always-Free VM = fully free; a small VPS; your own machine).
+
+> **Pure serverless (Vercel) + Neon** is also possible, but Vercel has no
+> persistent disk, so uploaded files must go to object storage (Cloudflare R2 /
+> Vercel Blob) — a code change, not yet wired. Ask and I'll add + test it.
+
 ## Option B — A managed host (Railway / Render / Fly.io / a VPS)
 
 1. **Provision a Postgres database** (the host's add-on, or Neon/Supabase) and
