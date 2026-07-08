@@ -31,6 +31,52 @@ docker compose up --build
 Data persists in named volumes (`db-data` for Postgres, `uploads` for uploaded
 schematics), so restarts keep your projects and files.
 
+### Using a managed Postgres (Neon, Supabase, …)
+
+If your database is already hosted (e.g. **Neon**), skip the bundled Postgres
+and run just the app container against it — you only need a volume for uploaded
+files:
+
+```bash
+docker build -t schemnotes .
+docker run -d -p 3000:3000 \
+  -v schemnotes-uploads:/app/public/uploads \
+  -e DB_PROVIDER=postgresql \
+  -e DATABASE_URL="postgresql://USER:PASSWORD@ep-xxx.REGION.aws.neon.tech/DB?sslmode=require" \
+  -e AUTH_SECRET="$(openssl rand -hex 32)" \
+  -e SCHEMNOTES_PLAN=pro \
+  schemnotes
+```
+
+The container creates the tables in your Neon database on first start. Use
+Neon's **direct** (non-pooled) connection string. Your data lives in Neon plus
+the `schemnotes-uploads` volume — nothing is deleted. Run this on any host with
+a disk (an Oracle Always-Free VM = fully free; a small VPS; your own machine).
+
+### Vercel + Neon (serverless — no server to manage)
+
+Vercel runs the app, **Neon** is the database, and **Vercel Blob** stores
+uploaded files (Vercel has no writable disk). All wired up:
+
+1. Import the repo into Vercel (New Project → pick `Scheme-notes`).
+2. Add two stores to the project:
+   - **Neon** (Vercel → Storage → Neon, or paste your Neon string) → sets `DATABASE_URL`.
+   - **Blob** (Vercel → Storage → Blob) → sets `BLOB_READ_WRITE_TOKEN` automatically.
+3. Add env vars (Settings → Environment Variables):
+   - `DB_PROVIDER = postgresql`
+   - `AUTH_SECRET =` a strong secret (`openssl rand -hex 32`)
+   - `SCHEMNOTES_PLAN = pro` (unlocks cloud sync + API tokens)
+   - optional: `NEXT_PUBLIC_APP_URL`, plus `SMTP_*` / `STRIPE_*` (below).
+4. **Deploy.** The `vercel-build` script switches Prisma to Postgres, creates
+   your tables in Neon, and builds the app.
+
+- Use Neon's standard connection string; tables are created on first deploy.
+- Uploaded files live in Vercel Blob (free tier) and your data in Neon — both
+  persistent, nothing auto-deleted.
+- ⚠️ **Native KiCad rendering doesn't work on Vercel** — it needs the
+  `kicad-cli` program, which serverless can't run. Upload PDF/SVG/PNG there (or
+  export your KiCad schematic to SVG/PDF first). Everything else works.
+
 ## Option B — A managed host (Railway / Render / Fly.io / a VPS)
 
 1. **Provision a Postgres database** (the host's add-on, or Neon/Supabase) and
@@ -42,6 +88,37 @@ schematics), so restarts keep your projects and files.
 
 The container runs `prisma db push` on start to create/sync the schema, then
 `next start`.
+
+## Option C — Free forever, always-on, keeps your data (Oracle Cloud Always Free)
+
+Free PaaS tiers wipe uploaded files on restart or expire the database. To run in
+the cloud for free **without** losing data, use a free VM and the Compose stack
+from Option A — the data lives in named volumes on the VM's own disk, so nothing
+is ever deleted.
+
+**Oracle Cloud "Always Free"** gives a real VM (Ampere ARM, up to ~24 GB RAM) +
+200 GB disk that stay free indefinitely:
+
+1. Sign up at cloud.oracle.com. A card is required for identity verification,
+   but Always Free resources are never charged.
+2. Create an **Always Free** Compute instance (shape *VM.Standard.A1.Flex*,
+   image *Ubuntu 22.04*).
+3. Allow the app port: add an **ingress rule for TCP 3000** to the instance's
+   subnet security list, and open it on the VM's own firewall.
+4. Install Docker: `curl -fsSL https://get.docker.com | sudo sh`.
+5. Copy this repo onto the VM, then run Option A there:
+   `echo "AUTH_SECRET=$(openssl rand -hex 32)" > .env && sudo docker compose up -d --build`
+6. Open `http://<vm-public-ip>:3000`. Add a domain + HTTPS later with a reverse
+   proxy (Caddy does it in ~3 lines).
+
+Postgres data and uploaded schematics sit in Docker volumes on the VM's disk —
+they survive restarts and reboots and are never auto-deleted.
+
+**No card, or want it even simpler?** Run Option A on any computer you leave on
+(an old laptop, a Raspberry Pi) and expose it with a free **Cloudflare Tunnel**
+(`cloudflared tunnel --url http://localhost:3000`) — your data stays on your own
+disk. A small always-on **VPS** (Hetzner / DigitalOcean, ~$4–5/mo) runs the exact
+same `docker compose up` if you'd rather not use your own hardware.
 
 ---
 

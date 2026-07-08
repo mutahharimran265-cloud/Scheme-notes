@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { readFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import path from "node:path";
 import JSZip from "jszip";
 import { prisma } from "@/lib/prisma";
 import { getSessionEmail } from "@/lib/auth";
+import { readStored } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -64,30 +63,32 @@ export async function GET(req: NextRequest) {
     ),
   );
 
-  // Bundle every referenced upload (rendered files + native originals).
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  const wanted = new Set<string>();
+  // Bundle every referenced upload (rendered files + native originals + images
+  // pasted into comment bodies), reading from whichever storage backend is
+  // active (local disk or Blob).
+  const files = new Map<string, string>(); // zip entry name -> source href
+  const addHref = (href?: string | null) => {
+    if (href) files.set(path.basename(href.split("?")[0]), href);
+  };
   for (const p of projects) {
     const allFiles = [...p.files, ...p.revisions.flatMap((r) => r.files)];
     for (const f of allFiles) {
-      if (f.fileUrl) wanted.add(path.basename(f.fileUrl));
-      if (f.originalUrl) wanted.add(path.basename(f.originalUrl));
-      // Images pasted into comment bodies (markdown) live in uploads too.
+      addHref(f.fileUrl);
+      addHref(f.originalUrl);
       for (const c of f.comments) {
-        for (const m of c.body.matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) {
-          wanted.add(m[1]);
+        for (const m of c.body.matchAll(
+          /\]\((https?:\/\/[^\s)]*\/uploads\/[^)\s]+|\/uploads\/[^)\s]+)\)/g,
+        )) {
+          addHref(m[1]);
         }
       }
     }
   }
   const missing: string[] = [];
-  for (const name of wanted) {
-    const filePath = path.join(uploadsDir, name);
-    if (existsSync(filePath)) {
-      zip.file(`uploads/${name}`, await readFile(filePath));
-    } else {
-      missing.push(name);
-    }
+  for (const [name, href] of files) {
+    const bytes = await readStored(href);
+    if (bytes) zip.file(`uploads/${name}`, bytes);
+    else missing.push(name);
   }
   if (missing.length) {
     zip.file("MISSING-FILES.txt", missing.join("\n"));

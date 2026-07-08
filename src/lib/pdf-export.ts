@@ -30,9 +30,22 @@ async function rasterize(fileUrl: string, fileType: string): Promise<HTMLCanvasE
   }
 
   // png / jpg / svg — the browser rasterizes it natively (SVG with its fonts).
+  // Fetch to a same-origin object URL first so a cross-origin (Blob) image
+  // can't taint the canvas — toDataURL() would otherwise throw.
+  let src = fileUrl;
+  let objectUrl: string | null = null;
+  try {
+    const res = await fetch(fileUrl);
+    if (res.ok) {
+      objectUrl = URL.createObjectURL(await res.blob());
+      src = objectUrl;
+    }
+  } catch {
+    /* fall back to the raw URL */
+  }
+
   const img = new Image();
-  img.crossOrigin = "anonymous";
-  img.src = fileUrl;
+  img.src = src;
   await img.decode();
   let w = img.naturalWidth;
   let h = img.naturalHeight;
@@ -47,6 +60,7 @@ async function rasterize(fileUrl: string, fileType: string): Promise<HTMLCanvasE
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(img, 0, 0, w, h);
+  if (objectUrl) URL.revokeObjectURL(objectUrl);
   return canvas;
 }
 
