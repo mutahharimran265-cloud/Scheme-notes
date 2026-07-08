@@ -172,67 +172,89 @@ async function main() {
   const bad = await fetch(`${BASE}/api/attachments`, { method: "POST", body: badFd });
   ok(bad.status === 400, "non-image content rejected by magic bytes");
 
+  // API tokens are a Pro feature. This block passes whether the smoke server
+  // runs on the free plan (tokens gated -> 402) or with SCHEMNOTES_PLAN=pro
+  // (full token lifecycle exercised).
   const tok = await fetch(`${BASE}/api/tokens`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ label: "smoke rig" }),
   });
-  const tokJson = await tok.json();
-  ok(
-    tok.status === 201 && tokJson.token.startsWith("sn_"),
-    "API token created (secret returned once)",
-  );
+  if (tok.status === 402) {
+    ok(true, "API tokens gated behind Pro on the free plan (402)");
+    const bearerGated = await fetch(`${BASE}/api/comments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer sn_not_entitled",
+      },
+      body: JSON.stringify({
+        schematicFileId: fileId,
+        authorName: "Bringup rig",
+        body: "should be gated",
+        xPercent: 1,
+        yPercent: 1,
+      }),
+    });
+    ok(bearerGated.status === 402, "Bearer API auth gated behind Pro (402)");
+  } else {
+    const tokJson = await tok.json();
+    ok(
+      tok.status === 201 && tokJson.token.startsWith("sn_"),
+      "API token created (secret returned once)",
+    );
 
-  const rigRes = await fetch(`${BASE}/api/comments`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${tokJson.token}`,
-    },
-    body: JSON.stringify({
-      schematicFileId: fileId,
-      authorName: "Bringup rig",
-      body: `Auto-logged failure\n\n![capture](${attJson.url})`,
-      xPercent: 10,
-      yPercent: 10,
-    }),
-  });
-  const rig = (await rigRes.json()).comment;
-  ok(rigRes.status === 201 && rig.isOwn === true, "Bearer token creates + owns a comment");
+    const rigRes = await fetch(`${BASE}/api/comments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokJson.token}`,
+      },
+      body: JSON.stringify({
+        schematicFileId: fileId,
+        authorName: "Bringup rig",
+        body: `Auto-logged failure\n\n![capture](${attJson.url})`,
+        xPercent: 10,
+        yPercent: 10,
+      }),
+    });
+    const rig = (await rigRes.json()).comment;
+    ok(rigRes.status === 201 && rig.isOwn === true, "Bearer token creates + owns a comment");
 
-  const rigList = await (
-    await fetch(`${BASE}/api/comments?fileId=${fileId}`, {
+    const rigList = await (
+      await fetch(`${BASE}/api/comments?fileId=${fileId}`, {
+        headers: { "x-author-token": tokJson.token },
+      })
+    ).json();
+    ok(
+      rigList.threads.some((t) => t.id === rig.id && t.isOwn),
+      "token doubles as author token for ownership",
+    );
+
+    const revoke = await fetch(`${BASE}/api/tokens/${tokJson.id}`, { method: "DELETE" });
+    ok(revoke.status === 200, "token revoked");
+    const rejected = await fetch(`${BASE}/api/comments`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${tokJson.token}`,
+      },
+      body: JSON.stringify({
+        schematicFileId: fileId,
+        authorName: "Bringup rig",
+        body: "should fail",
+        xPercent: 1,
+        yPercent: 1,
+      }),
+    });
+    ok(rejected.status === 401, "revoked token -> 401");
+
+    const delRig = await fetch(`${BASE}/api/comments/${rig.id}`, {
+      method: "DELETE",
       headers: { "x-author-token": tokJson.token },
-    })
-  ).json();
-  ok(
-    rigList.threads.some((t) => t.id === rig.id && t.isOwn),
-    "token doubles as author token for ownership",
-  );
-
-  const revoke = await fetch(`${BASE}/api/tokens/${tokJson.id}`, { method: "DELETE" });
-  ok(revoke.status === 200, "token revoked");
-  const rejected = await fetch(`${BASE}/api/comments`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${tokJson.token}`,
-    },
-    body: JSON.stringify({
-      schematicFileId: fileId,
-      authorName: "Bringup rig",
-      body: "should fail",
-      xPercent: 1,
-      yPercent: 1,
-    }),
-  });
-  ok(rejected.status === 401, "revoked token -> 401");
-
-  const delRig = await fetch(`${BASE}/api/comments/${rig.id}`, {
-    method: "DELETE",
-    headers: { "x-author-token": tokJson.token },
-  });
-  ok(delRig.status === 200, "rig comment still deletable with its token");
+    });
+    ok(delRig.status === 200, "rig comment still deletable with its token");
+  }
 
   console.log("Security / validation:");
   const wrongEdit = await fetch(`${BASE}/api/comments/${threadId}`, {

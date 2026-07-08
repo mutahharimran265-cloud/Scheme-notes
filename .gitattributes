@@ -1,0 +1,7 @@
+# Shell scripts must stay LF or they break as a Docker entrypoint on Linux
+# (CRLF -> "docker-entrypoint.sh: not found" / bad interpreter).
+*.sh text eol=lf
+docker-entrypoint.sh text eol=lf
+
+# Windows launchers must stay CRLF (LF breaks cmd.exe parsing).
+*.bat text eol=crlf

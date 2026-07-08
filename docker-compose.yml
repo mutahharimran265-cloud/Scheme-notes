@@ -1,0 +1,46 @@
+# One-command cloud-like stack: SchemNotes + PostgreSQL.
+#
+#   1. echo "AUTH_SECRET=$(openssl rand -hex 32)" > .env
+#   2. docker compose up --build
+#   3. open http://localhost:3000
+#
+# A shared Postgres database means signing in with the same email on any device
+# shows the same projects — that's cloud sync. SCHEMNOTES_PLAN=pro unlocks the
+# paid features (cloud sync surface, API tokens) for this deployment.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: schemnotes
+      POSTGRES_PASSWORD: schemnotes
+      POSTGRES_DB: schemnotes
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U schemnotes"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_PROVIDER: postgresql
+      DATABASE_URL: postgresql://schemnotes:schemnotes@db:5432/schemnotes
+      # Required — no default on purpose. Generate: openssl rand -hex 32
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET (openssl rand -hex 32) in a .env file next to this compose file}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      SCHEMNOTES_PLAN: ${SCHEMNOTES_PLAN:-pro}
+    ports:
+      - "3000:3000"
+    volumes:
+      - uploads:/app/public/uploads
+
+volumes:
+  db-data:
+  uploads:

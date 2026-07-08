@@ -1,0 +1,31 @@
+# Build context excludes — keep the image lean and never bake in local state.
+node_modules
+.next
+out
+.git
+.gitignore
+
+# Local SQLite dev database + backups (cloud uses Postgres)
+prisma/dev.db
+prisma/dev.db-journal
+prisma/backups
+
+# Uploaded files live on a mounted volume, not in the image
+public/uploads
+
+# Secrets and local env
+.env
+.env.local
+.env.*.local
+
+# Editor / OS / logs
+*.log
+npm-debug.log*
+.DS_Store
+.vscode
+.idea
+
+# Docker meta (not needed inside the image)
+Dockerfile
+docker-compose.yml
+.dockerignore

@@ -1,5 +1,6 @@
 // SchemNotes data model — see README for an overview.
-// Using SQLite for local dev; swap `provider` to "postgresql" for production.
+// SQLite for local dev (the committed default). Cloud deploys build with
+// DB_PROVIDER=postgresql via scripts/use-db-provider.mjs — see DEPLOY.md.
 
 generator client {
   provider = "prisma-client-js"

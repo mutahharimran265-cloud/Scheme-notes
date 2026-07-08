@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashToken } from "@/lib/auth";
+import { hasFeature } from "@/lib/entitlements";
 import {
   toThreadDTO,
   toCommentDTO,
@@ -56,6 +57,13 @@ export async function POST(req: NextRequest) {
   const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
   let apiTokenSecret: string | null = null;
   if (bearer) {
+    // Bearer auth is the scriptable-API path, which is a Pro feature.
+    if (!hasFeature("api_tokens")) {
+      return NextResponse.json(
+        { error: "API tokens are a Pro feature. Upgrade to script the review API." },
+        { status: 402 },
+      );
+    }
     const apiToken = await prisma.apiToken.findUnique({
       where: { tokenHash: hashToken(bearer) },
     });

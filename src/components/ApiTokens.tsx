@@ -11,8 +11,12 @@ type TokenRow = {
   lastUsedAt: string | null;
 };
 
-/** Personal API tokens for scripting the local REST API (see docs/API.md). */
-export default function ApiTokens() {
+/**
+ * Personal API tokens for scripting the REST API (see docs/API.md).
+ * Scriptable access is a Pro feature; `enabled` reflects the active plan and,
+ * when false, the section renders an upgrade prompt instead of the manager.
+ */
+export default function ApiTokens({ enabled = true }: { enabled?: boolean }) {
   const [tokens, setTokens] = useState<TokenRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [label, setLabel] = useState("");
@@ -28,6 +32,7 @@ export default function ApiTokens() {
   const pendingRef = useRef<{ timer: number; commit: () => void } | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     fetch("/api/tokens")
       .then(async (res) => {
         const data = await res.json().catch(() => ({}));
@@ -35,7 +40,7 @@ export default function ApiTokens() {
         setTokens(data.tokens);
       })
       .catch((e) => setLoadError(e instanceof Error ? e.message : "Could not load tokens."));
-  }, []);
+  }, [enabled]);
 
   async function create() {
     setCreating(true);
@@ -100,6 +105,34 @@ export default function ApiTokens() {
         setToast(null);
       },
     });
+  }
+
+  if (!enabled) {
+    return (
+      <section className="mt-12">
+        <h2 className="font-display text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
+          API tokens
+          <span className="ml-2 rounded-full bg-indigo-100 px-2 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">
+            Pro
+          </span>
+        </h2>
+        <div className="mt-3 max-w-2xl rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 text-sm dark:border-indigo-900/60 dark:bg-indigo-950/30">
+          <p className="text-zinc-700 dark:text-zinc-200">
+            Script annotation from a bring-up rig or CI with{" "}
+            <code className="rounded bg-white px-1 py-0.5 text-xs dark:bg-zinc-900">
+              Authorization: Bearer sn_…
+            </code>{" "}
+            requests. Scriptable API access is part of the Pro plan.
+          </p>
+          <a
+            href="/#pricing"
+            className="mt-3 inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            See plans →
+          </a>
+        </div>
+      </section>
+    );
   }
 
   return (
