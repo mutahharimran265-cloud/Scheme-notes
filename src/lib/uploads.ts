@@ -1,5 +1,4 @@
-// Shared schematic-upload validation + storage, used by /api/upload (new
-// projects) and /api/projects/[id]/revisions (new revisions). Keeps the
+// Shared schematic-upload validation + storage, used by /api/upload. Keeps the
 // magic-byte checks and KiCad conversion identical on every upload path.
 import { writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
