@@ -21,6 +21,7 @@ type Props = {
   onFilterChange: (f: ThreadFilter) => void;
   onSelect: (id: string) => void;
   onExport: () => void;
+  onDownloadPdf: () => void;
 };
 
 function lastActivity(t: ThreadDTO): number {
@@ -35,6 +36,7 @@ export default function CommentSidebar({
   onFilterChange,
   onSelect,
   onExport,
+  onDownloadPdf,
 }: Props) {
   const counts = {
     all: threads.length,
@@ -72,16 +74,28 @@ export default function CommentSidebar({
           <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
             Comments
           </h2>
-          <button
-            onClick={onExport}
-            title="Copy the review as a Markdown checklist"
-            className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
-          >
-            <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-            </svg>
-            Export
-          </button>
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={onDownloadPdf}
+              title="Download the schematic with its comments as a PDF"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 3v4a1 1 0 0 0 1 1h4M5 3h9l5 5v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2Z" />
+              </svg>
+              PDF
+            </button>
+            <button
+              onClick={onExport}
+              title="Copy the review as a Markdown checklist"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:hover:bg-zinc-800 dark:hover:text-zinc-200"
+            >
+              <svg viewBox="0 0 24 24" fill="none" className="h-3.5 w-3.5 stroke-current stroke-2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+              </svg>
+              Export
+            </button>
+          </div>
         </div>
 
         {total > 0 && (

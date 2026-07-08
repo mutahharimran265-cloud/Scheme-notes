@@ -12,6 +12,7 @@ import {
 } from "@/lib/api";
 import { statusOf, type CommentStatus } from "@/lib/status";
 import { getDisplayName, setDisplayName } from "@/lib/identity";
+import { downloadReviewPdf } from "@/lib/pdf-export";
 import SchematicViewer from "./SchematicViewer";
 import CommentSidebar, { type ThreadFilter } from "./CommentSidebar";
 import PinComposer, { type ComposerExtras } from "./PinComposer";
@@ -34,6 +35,7 @@ type Props = {
   fileId: string;
   fileUrl: string;
   fileType: string;
+  title: string;
   initialThreads: ThreadDTO[];
   /** Deep-link target (?focus=<commentId>) — opened once on mount. */
   focusCommentId?: string;
@@ -43,6 +45,7 @@ export default function ProjectWorkspace({
   fileId,
   fileUrl,
   fileType,
+  title,
   initialThreads,
   focusCommentId,
 }: Props) {
@@ -353,6 +356,15 @@ export default function ProjectWorkspace({
       .catch(() => flash("Couldn't copy — clipboard blocked."));
   }
 
+  async function handleDownloadPdf() {
+    flash("Building PDF…");
+    try {
+      await downloadReviewPdf({ title, fileUrl, fileType, threads: numbered });
+    } catch (e) {
+      flash(e instanceof Error ? e.message : "Couldn't build the PDF.");
+    }
+  }
+
   const overlay = draftPin ? (
     <PinComposer
       authorName={name}
@@ -412,6 +424,7 @@ export default function ProjectWorkspace({
           onFilterChange={setFilter}
           onSelect={handleSelectPin}
           onExport={handleExport}
+          onDownloadPdf={handleDownloadPdf}
         />
       </aside>
 
@@ -444,6 +457,7 @@ export default function ProjectWorkspace({
                   setDrawerOpen(false);
                 }}
                 onExport={handleExport}
+                onDownloadPdf={handleDownloadPdf}
               />
             </div>
           </aside>
