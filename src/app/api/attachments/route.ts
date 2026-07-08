@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, mkdir } from "node:fs/promises";
-import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { isRateLimited } from "@/lib/rate-limit";
+import { putFile } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
@@ -48,10 +47,8 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadsDir, { recursive: true });
   const name = `${randomUUID()}.${ext}`;
-  await writeFile(path.join(uploadsDir, name), bytes);
+  const url = await putFile(name, bytes);
 
-  return NextResponse.json({ url: `/uploads/${name}` }, { status: 201 });
+  return NextResponse.json({ url }, { status: 201 });
 }

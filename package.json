@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
+    "vercel-build": "node scripts/use-db-provider.mjs postgresql && prisma generate && prisma db push --skip-generate && next build",
     "start": "next start",
     "lint": "eslint",
     "seed": "node scripts/seed-demo.mjs",
@@ -15,6 +16,7 @@
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "@types/nodemailer": "^8.0.1",
+    "@vercel/blob": "^2.6.1",
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "next": "16.2.9",

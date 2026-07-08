@@ -1,9 +1,11 @@
 // Shared schematic-upload validation + storage, used by /api/upload. Keeps the
 // magic-byte checks and KiCad conversion identical on every upload path.
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
+import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { convertKicadSchToSvg } from "./kicad";
+import { putFile } from "./storage";
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
 
@@ -66,8 +68,6 @@ export async function storeSchematicUpload(file: unknown): Promise<StoredUpload>
     );
   }
 
-  const uploadsDir = path.join(process.cwd(), "public", "uploads");
-  await mkdir(uploadsDir, { recursive: true });
   const bytes = Buffer.from(await file.arrayBuffer());
 
   // Magic-byte validation (content must match the claimed type).
@@ -88,33 +88,29 @@ export async function storeSchematicUpload(file: unknown): Promise<StoredUpload>
   }
 
   if (fileType === "kicad_sch") {
-    // Store the native source, then render it to SVG for the viewer.
+    // kicad-cli needs real files on disk — convert in a temp dir, then hand the
+    // rendered SVG + native source to storage (local disk or Blob).
     const id = randomUUID();
-    const nativePath = path.join(uploadsDir, `${id}.kicad_sch`);
+    const tmp = await mkdtemp(path.join(os.tmpdir(), "schemnotes-"));
+    const nativePath = path.join(tmp, `${id}.kicad_sch`);
     await writeFile(nativePath, bytes);
     try {
-      const svgPath = await convertKicadSchToSvg(nativePath, uploadsDir);
-      return {
-        fileUrl: `/uploads/${path.basename(svgPath)}`,
-        servedType: "svg",
-        originalUrl: `/uploads/${id}.kicad_sch`,
-        originalName: file.name,
-      };
+      const svgPath = await convertKicadSchToSvg(nativePath, tmp);
+      const fileUrl = await putFile(`${id}.svg`, await readFile(svgPath), "image/svg+xml");
+      const originalUrl = await putFile(`${id}.kicad_sch`, bytes, "text/plain");
+      return { fileUrl, servedType: "svg", originalUrl, originalName: file.name };
     } catch (err) {
       console.error("KiCad conversion failed:", err);
       throw new UploadError(
         "Couldn't render this KiCad schematic. Make sure KiCad is installed on this machine (or set KICAD_CLI), or upload a PDF/SVG export instead.",
         422,
       );
+    } finally {
+      await rm(tmp, { recursive: true, force: true });
     }
   }
 
   const storedName = `${randomUUID()}.${fileType}`;
-  await writeFile(path.join(uploadsDir, storedName), bytes);
-  return {
-    fileUrl: `/uploads/${storedName}`,
-    servedType: fileType,
-    originalUrl: null,
-    originalName: null,
-  };
+  const fileUrl = await putFile(storedName, bytes);
+  return { fileUrl, servedType: fileType, originalUrl: null, originalName: null };
 }

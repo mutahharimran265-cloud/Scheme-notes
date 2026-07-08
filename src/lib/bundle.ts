@@ -3,10 +3,9 @@
 // with replace-semantics (the account's workspace becomes exactly the bundle).
 // Simple and predictable: last push wins, no field-level merge.
 
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { existsSync } from "node:fs";
 import path from "node:path";
 import { prisma } from "./prisma";
+import { putFile, readStored, contentTypeFor } from "./storage";
 
 export type BundleComment = {
   id: string;
@@ -51,8 +50,6 @@ export type SyncBundle = {
   blobs: Record<string, string>; // basename -> base64
 };
 
-const uploadsDir = () => path.join(process.cwd(), "public", "uploads");
-
 /** Serialize everything owned by `email` into a self-contained bundle. */
 export async function buildOwnerBundle(email: string): Promise<SyncBundle> {
   const projects = await prisma.project.findMany({
@@ -66,21 +63,28 @@ export async function buildOwnerBundle(email: string): Promise<SyncBundle> {
     },
   });
 
-  const wanted = new Set<string>();
+  const hrefs = new Map<string, string>(); // basename -> href
+  const add = (href?: string | null) => {
+    if (href) hrefs.set(path.basename(href.split("?")[0]), href);
+  };
   for (const p of projects) {
     for (const f of p.files) {
-      if (f.fileUrl) wanted.add(path.basename(f.fileUrl));
-      if (f.originalUrl) wanted.add(path.basename(f.originalUrl));
+      add(f.fileUrl);
+      add(f.originalUrl);
       for (const c of f.comments) {
-        for (const m of c.body.matchAll(/\/uploads\/([A-Za-z0-9._-]+)/g)) wanted.add(m[1]);
+        for (const m of c.body.matchAll(
+          /\]\((https?:\/\/[^\s)]*\/uploads\/[^)\s]+|\/uploads\/[^)\s]+)\)/g,
+        )) {
+          add(m[1]);
+        }
       }
     }
   }
 
   const blobs: Record<string, string> = {};
-  for (const name of wanted) {
-    const fp = path.join(uploadsDir(), name);
-    if (existsSync(fp)) blobs[name] = (await readFile(fp)).toString("base64");
+  for (const [name, href] of hrefs) {
+    const bytes = await readStored(href);
+    if (bytes) blobs[name] = bytes.toString("base64");
   }
 
   // JSON.stringify turns Date fields into ISO strings; that's what BundleX expects.
@@ -124,11 +128,17 @@ export async function applyOwnerBundle(
   email: string,
   bundle: SyncBundle,
 ): Promise<{ projects: number; comments: number }> {
-  await mkdir(uploadsDir(), { recursive: true });
+  // Materialize blobs into this instance's storage, mapping each basename to
+  // the href it now lives at (local /uploads/… or a Blob URL).
+  const newHref: Record<string, string> = {};
   for (const [name, b64] of Object.entries(bundle.blobs ?? {})) {
-    const fp = path.join(uploadsDir(), path.basename(name));
-    if (!existsSync(fp)) await writeFile(fp, Buffer.from(b64, "base64"));
+    const base = path.basename(name);
+    newHref[base] = await putFile(base, Buffer.from(b64, "base64"), contentTypeFor(base));
   }
+  const remap = (href: string): string =>
+    /^https?:\/\//i.test(href) ? href : (newHref[path.basename(href)] ?? href);
+  const remapBody = (body: string): string =>
+    body.replace(/\/uploads\/[A-Za-z0-9._-]+/g, (m) => newHref[path.basename(m)] ?? m);
 
   let comments = 0;
   await prisma.$transaction(
@@ -143,9 +153,9 @@ export async function applyOwnerBundle(
             data: {
               id: f.id,
               projectId: p.id,
-              fileUrl: f.fileUrl,
+              fileUrl: remap(f.fileUrl),
               fileType: f.fileType,
-              originalUrl: f.originalUrl ?? null,
+              originalUrl: f.originalUrl ? remap(f.originalUrl) : null,
               originalName: f.originalName ?? null,
               uploadedAt: new Date(f.uploadedAt),
             },
@@ -154,7 +164,9 @@ export async function applyOwnerBundle(
           const roots = f.comments.filter((c) => !c.parentCommentId);
           const replies = f.comments.filter((c) => c.parentCommentId);
           for (const c of [...roots, ...replies]) {
-            await tx.comment.create({ data: commentCreate(c, f.id) });
+            await tx.comment.create({
+              data: { ...commentCreate(c, f.id), body: remapBody(c.body) },
+            });
             comments++;
           }
         }

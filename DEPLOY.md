@@ -53,9 +53,29 @@ Neon's **direct** (non-pooled) connection string. Your data lives in Neon plus
 the `schemnotes-uploads` volume — nothing is deleted. Run this on any host with
 a disk (an Oracle Always-Free VM = fully free; a small VPS; your own machine).
 
-> **Pure serverless (Vercel) + Neon** is also possible, but Vercel has no
-> persistent disk, so uploaded files must go to object storage (Cloudflare R2 /
-> Vercel Blob) — a code change, not yet wired. Ask and I'll add + test it.
+### Vercel + Neon (serverless — no server to manage)
+
+Vercel runs the app, **Neon** is the database, and **Vercel Blob** stores
+uploaded files (Vercel has no writable disk). All wired up:
+
+1. Import the repo into Vercel (New Project → pick `Scheme-notes`).
+2. Add two stores to the project:
+   - **Neon** (Vercel → Storage → Neon, or paste your Neon string) → sets `DATABASE_URL`.
+   - **Blob** (Vercel → Storage → Blob) → sets `BLOB_READ_WRITE_TOKEN` automatically.
+3. Add env vars (Settings → Environment Variables):
+   - `DB_PROVIDER = postgresql`
+   - `AUTH_SECRET =` a strong secret (`openssl rand -hex 32`)
+   - `SCHEMNOTES_PLAN = pro` (unlocks cloud sync + API tokens)
+   - optional: `NEXT_PUBLIC_APP_URL`, plus `SMTP_*` / `STRIPE_*` (below).
+4. **Deploy.** The `vercel-build` script switches Prisma to Postgres, creates
+   your tables in Neon, and builds the app.
+
+- Use Neon's standard connection string; tables are created on first deploy.
+- Uploaded files live in Vercel Blob (free tier) and your data in Neon — both
+  persistent, nothing auto-deleted.
+- ⚠️ **Native KiCad rendering doesn't work on Vercel** — it needs the
+  `kicad-cli` program, which serverless can't run. Upload PDF/SVG/PNG there (or
+  export your KiCad schematic to SVG/PDF first). Everything else works.
 
 ## Option B — A managed host (Railway / Render / Fly.io / a VPS)
 
