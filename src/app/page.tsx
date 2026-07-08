@@ -221,12 +221,13 @@ export default function Home() {
               features={[
                 "Everything in Free",
                 "Cloud sync across devices",
-                "Revision history & cloud backup",
+                "Scriptable API tokens & REST access",
+                "Cloud backup",
                 "Priority support",
               ]}
               cta="Coming soon"
               featured
-              note="Cloud sync is on the way."
+              note="Cloud sync ships today for self-hosted deploys — hosted billing is next."
             />
             <PlanCard
               name="Team"

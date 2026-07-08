@@ -3,8 +3,12 @@
 // Built ahead of billing (per the roadmap) so every cloud/team feature is
 // gated from day one instead of retrofitted. Rules:
 //   - Core annotation features (upload, view, pin comments, threads, status,
-//     search, export, backups) are NEVER listed here. They are free and
-//     fully offline, permanently. Only additive cloud/team features appear.
+//     search, markdown, export, backups) are NEVER listed here. They are free
+//     and fully offline, permanently — moving those behind a paywall would
+//     lock users out of their own data.
+//   - Additive power / cloud / team capabilities live here and require a plan.
+//     "api_tokens" (scriptable REST access) is a Pro power feature; the free
+//     tier keeps the full interactive review experience.
 //   - Server code must check hasFeature() before serving a gated capability;
 //     client code may also check it, but only for UI (never as the guard).
 
@@ -13,12 +17,13 @@ export type Plan = "free" | "pro" | "team";
 export type Feature =
   | "cloud_sync"
   | "cloud_backup"
+  | "api_tokens"
   | "shared_workspaces"
   | "roles_permissions"
   | "notifications"
   | "integrations";
 
-const PRO_FEATURES: readonly Feature[] = ["cloud_sync", "cloud_backup"];
+const PRO_FEATURES: readonly Feature[] = ["cloud_sync", "cloud_backup", "api_tokens"];
 const TEAM_FEATURES: readonly Feature[] = [
   ...PRO_FEATURES,
   "shared_workspaces",
