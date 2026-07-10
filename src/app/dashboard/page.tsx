@@ -123,7 +123,12 @@ function UploadUsageCard({
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ upgraded?: string; canceled?: string }>;
+}) {
+  const { upgraded, canceled } = await searchParams;
   const email = await getSessionEmail();
   if (!email) redirect("/login");
 
@@ -200,6 +205,26 @@ export default async function DashboardPage() {
           </form>
         </div>
       </div>
+
+      {upgraded && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/30">
+          <span className="text-lg">🎉</span>
+          <div>
+            <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+              Subscription active — thank you!
+            </p>
+            <p className="text-emerald-700/80 dark:text-emerald-300/70">
+              Your plan is being applied. If features don&apos;t show immediately, refresh in a
+              moment (the payment confirmation lands via webhook).
+            </p>
+          </div>
+        </div>
+      )}
+      {canceled && (
+        <div className="mb-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+          Checkout canceled — no charge was made. You can upgrade any time.
+        </div>
+      )}
 
       <CloudSyncCard
         syncActive={cloudSyncActive(plan)}

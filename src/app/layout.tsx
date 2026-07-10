@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import Link from "next/link";
 import { getSessionEmail } from "@/lib/auth";
@@ -16,6 +16,14 @@ export const metadata: Metadata = {
   title: "SchemNotes — comment on circuit schematics",
   description:
     "Upload a circuit schematic, share a link, and let reviewers drop comment pins right on the diagram.",
+};
+
+// Without this, mobile browsers render the page at ~980px desktop width
+// (zoomed out and unusable). device-width makes the responsive layout apply.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#4f46e5",
 };
 
 function LogoMark() {

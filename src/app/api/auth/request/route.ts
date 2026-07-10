@@ -54,5 +54,14 @@ export async function POST(req: NextRequest) {
   // it — only enable it for trusted preview builds, never real production.
   const isDev = process.env.NODE_ENV !== "production";
   const preview = process.env.SCHEMNOTES_PREVIEW_LOGIN === "1";
-  return NextResponse.json({ ok: true, ...(isDev || preview ? { devLink: link } : {}) });
+  if (isDev || preview) {
+    return NextResponse.json({ ok: true, devLink: link });
+  }
+  // Production with no SMTP and no preview mode: we can neither email the link
+  // nor hand it back, so sign-in would silently dead-end. Fail loudly instead
+  // so the misconfiguration is obvious rather than looking like a broken login.
+  return NextResponse.json(
+    { error: "Email sign-in isn't configured on this server yet. Set SMTP_* to enable it." },
+    { status: 503 },
+  );
 }

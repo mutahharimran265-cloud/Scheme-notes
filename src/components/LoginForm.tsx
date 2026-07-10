@@ -36,6 +36,33 @@ export default function LoginForm({ initialError }: { initialError?: boolean }) 
   }
 
   if (sent) {
+    // When email delivery isn't configured, the API returns the sign-in link
+    // directly (devLink) instead of emailing it. Don't tell the user to check an
+    // inbox that will stay empty — give them a single tap to continue. This is
+    // also what makes sign-in work on the shared preview link + on mobile.
+    if (devLink) {
+      return (
+        <div className="text-center">
+          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-indigo-100 text-2xl dark:bg-indigo-950">
+            🔑
+          </div>
+          <h2 className="text-lg font-semibold">You&apos;re all set</h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Continue to sign in as <span className="font-medium">{email}</span>.
+          </p>
+          <a
+            href={devLink}
+            className="mt-4 block w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-center font-medium text-white hover:bg-indigo-700"
+          >
+            Continue →
+          </a>
+          <p className="mt-3 text-xs text-zinc-400">
+            Email delivery isn&apos;t set up on this instance, so we&apos;re signing you in
+            directly.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="text-center">
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-indigo-100 text-2xl dark:bg-indigo-950">
@@ -43,18 +70,18 @@ export default function LoginForm({ initialError }: { initialError?: boolean }) 
         </div>
         <h2 className="text-lg font-semibold">Check your email</h2>
         <p className="mt-1 text-sm text-zinc-500">
-          We sent a sign-in link to <span className="font-medium">{email}</span>.
+          We sent a sign-in link to <span className="font-medium">{email}</span>. It expires in
+          15 minutes — open it on this device to finish signing in.
         </p>
-        {devLink && (
-          <div className="mt-4 rounded-lg border border-dashed border-amber-300 bg-amber-50 p-3 text-left text-xs dark:border-amber-800 dark:bg-amber-950/40">
-            <p className="mb-1 font-medium text-amber-700 dark:text-amber-400">
-              Dev mode — no email is actually sent:
-            </p>
-            <a href={devLink} className="break-all font-mono text-indigo-600 underline">
-              {devLink}
-            </a>
-          </div>
-        )}
+        <button
+          onClick={() => {
+            setSent(false);
+            setDevLink(null);
+          }}
+          className="mt-4 text-sm font-medium text-indigo-600 hover:underline"
+        >
+          Use a different email
+        </button>
       </div>
     );
   }
