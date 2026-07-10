@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hashToken } from "@/lib/auth";
+import { hashToken, getSessionEmail } from "@/lib/auth";
 import { toCommentDTO, cleanText, LIMITS } from "@/lib/comments";
+import { fileCapability, atLeast } from "@/lib/access";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,18 @@ export async function PATCH(
   const comment = await prisma.comment.findUnique({ where: { id } });
   if (!comment) {
     return NextResponse.json({ error: "Comment not found." }, { status: 404 });
+  }
+
+  // Access control: updating a comment on a private/team schematic requires
+  // commenter+ membership. Public projects grant this to anyone with the link,
+  // so the collaborative status workflow is unchanged there; on a private
+  // project it stops an outsider who guessed a comment id from flipping status.
+  const sessionEmail = await getSessionEmail();
+  if (!atLeast(await fileCapability(comment.schematicFileId, sessionEmail), "comment")) {
+    return NextResponse.json(
+      { error: "You don't have permission to update this comment." },
+      { status: 403 },
+    );
   }
 
   const patch: { resolved?: boolean; body?: string; status?: string } = {};
@@ -59,7 +72,20 @@ export async function PATCH(
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
 
-  const updated = await prisma.comment.update({ where: { id }, data: patch });
+  // Snapshot the prior body into the edit history before an edit lands, so the
+  // change is auditable (viewing that history is the Pro version_history feature).
+  let updated;
+  if (patch.body !== undefined && patch.body !== comment.body) {
+    const [, u] = await prisma.$transaction([
+      prisma.commentVersion.create({
+        data: { commentId: id, body: comment.body, editedBy: sessionEmail ?? comment.authorName },
+      }),
+      prisma.comment.update({ where: { id }, data: patch }),
+    ]);
+    updated = u;
+  } else {
+    updated = await prisma.comment.update({ where: { id }, data: patch });
+  }
   return NextResponse.json({
     comment: toCommentDTO(updated, req.headers.get(AUTHOR_TOKEN_HEADER)),
   });

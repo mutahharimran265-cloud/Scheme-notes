@@ -51,3 +51,7 @@ next-env.d.ts
 
 # keep the env example committed even though .env* is ignored above
 !.env.example
+
+# local share-link launcher artifacts
+/tools/cloudflared.exe
+/tools/link.html

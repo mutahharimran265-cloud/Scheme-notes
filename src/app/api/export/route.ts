@@ -28,19 +28,7 @@ export async function GET(req: NextRequest) {
     where: isLocal ? {} : { ownerEmail: email },
     orderBy: { createdAt: "asc" },
     include: {
-      revisions: {
-        orderBy: { createdAt: "asc" },
-        include: {
-          files: {
-            orderBy: { uploadedAt: "asc" },
-            include: { comments: { orderBy: { createdAt: "asc" } } },
-          },
-        },
-      },
-      // Safety net: any file not yet attached to a revision (shouldn't happen
-      // post-backfill, but never silently drop data from an export).
       files: {
-        where: { revisionId: null },
         orderBy: { uploadedAt: "asc" },
         include: { comments: { orderBy: { createdAt: "asc" } } },
       },
@@ -53,7 +41,7 @@ export async function GET(req: NextRequest) {
     JSON.stringify(
       {
         app: "SchemNotes",
-        formatVersion: 2, // v2: files nested under named revisions
+        formatVersion: 3, // v3: files nested directly under projects
         exportedAt: new Date().toISOString(),
         scope: isLocal ? "all-local-data" : `owner:${email}`,
         projects,
@@ -71,8 +59,7 @@ export async function GET(req: NextRequest) {
     if (href) files.set(path.basename(href.split("?")[0]), href);
   };
   for (const p of projects) {
-    const allFiles = [...p.files, ...p.revisions.flatMap((r) => r.files)];
-    for (const f of allFiles) {
+    for (const f of p.files) {
       addHref(f.fileUrl);
       addHref(f.originalUrl);
       for (const c of f.comments) {

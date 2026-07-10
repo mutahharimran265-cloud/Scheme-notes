@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
       if (email) {
         await prisma.account.upsert({
           where: { email },
-          create: { email, plan, stripeCustomerId: customerId, stripeSubscriptionId: subscriptionId },
+          create: { email, plan, prioritySupport: plan === "team", stripeCustomerId: customerId, stripeSubscriptionId: subscriptionId },
           update: {
             plan,
+            prioritySupport: plan === "team",
             stripeCustomerId: customerId ?? undefined,
             stripeSubscriptionId: subscriptionId ?? undefined,
           },
@@ -59,13 +60,13 @@ export async function POST(req: NextRequest) {
       if (email) {
         await prisma.account.upsert({
           where: { email },
-          create: { email, plan, stripeSubscriptionId: sub.id },
-          update: { plan, stripeSubscriptionId: sub.id },
+          create: { email, plan, prioritySupport: plan === "team", stripeSubscriptionId: sub.id },
+          update: { plan, prioritySupport: plan === "team", stripeSubscriptionId: sub.id },
         });
       } else {
         await prisma.account.updateMany({
           where: { stripeSubscriptionId: sub.id },
-          data: { plan },
+          data: { plan, prioritySupport: plan === "team" },
         });
       }
     }

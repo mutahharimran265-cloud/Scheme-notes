@@ -23,6 +23,16 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return {
+      // Serve uploaded files through the route handler so they work in
+      // production: `next start` does not serve files written to public/uploads
+      // after the build. beforeFiles runs before static-file resolution.
+      beforeFiles: [{ source: "/uploads/:name", destination: "/api/uploads/:name" }],
+      afterFiles: [],
+      fallback: [],
+    };
+  },
 };
 
 export default nextConfig;

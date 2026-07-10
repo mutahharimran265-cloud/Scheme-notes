@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionEmail } from "@/lib/auth";
+import { parsePageParam } from "@/lib/pagination";
 
 export const runtime = "nodejs";
 
@@ -11,8 +12,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
 
-  const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10));
-  const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "20", 10)));
+  const page = parsePageParam(req.nextUrl.searchParams.get("page"), 1, 1, Number.MAX_SAFE_INTEGER);
+  const limit = parsePageParam(req.nextUrl.searchParams.get("limit"), 20, 1, 100);
   const skip = (page - 1) * limit;
 
   const projects = await prisma.project.findMany({

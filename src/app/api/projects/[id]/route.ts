@@ -11,9 +11,18 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
+  // Public/link endpoint — select only non-sensitive fields (never leak
+  // ownerEmail to anyone with the share link).
   const project = await prisma.project.findUnique({
     where: { id },
-    include: { files: { orderBy: { uploadedAt: "asc" } } },
+    select: {
+      id: true,
+      title: true,
+      visibility: true,
+      createdAt: true,
+      updatedAt: true,
+      files: { orderBy: { uploadedAt: "asc" } },
+    },
   });
 
   if (!project) {

@@ -20,21 +20,25 @@ export type Plan = "free" | "pro" | "team";
 export type Feature =
   | "cloud_sync"
   | "cloud_backup"
+  | "version_history"
   | "api_tokens"
   | "shared_workspaces"
   | "roles_permissions"
+  | "priority_support"
   | "notifications"
   | "integrations";
 
 const PRO_FEATURES: readonly Feature[] = [
   "cloud_sync",
   "cloud_backup",
+  "version_history",
   "api_tokens",
 ];
 const TEAM_FEATURES: readonly Feature[] = [
   ...PRO_FEATURES,
   "shared_workspaces",
   "roles_permissions",
+  "priority_support",
   "notifications",
   "integrations",
 ];
@@ -61,15 +65,20 @@ export function hasFeature(feature: Feature, plan: Plan = getPlan()): boolean {
 }
 
 // Volume limits (the free tier is capped by quantity, not capability).
-// `maxUploadsPerMonth: null` means unlimited.
-export type PlanLimits = { maxUploadsPerMonth: number | null };
+// `maxUploadsPerMonth: null` means unlimited. `maxAttachmentBytes` is the
+// per-image cap for pasted attachments — raised on paid plans.
+export type PlanLimits = {
+  maxUploadsPerMonth: number | null;
+  maxAttachmentBytes: number;
+};
 
 export const FREE_UPLOADS_PER_MONTH = 5;
+const MB = 1024 * 1024;
 
 const PLAN_LIMITS: Record<Plan, PlanLimits> = {
-  free: { maxUploadsPerMonth: FREE_UPLOADS_PER_MONTH },
-  pro: { maxUploadsPerMonth: null },
-  team: { maxUploadsPerMonth: null },
+  free: { maxUploadsPerMonth: FREE_UPLOADS_PER_MONTH, maxAttachmentBytes: 10 * MB },
+  pro: { maxUploadsPerMonth: null, maxAttachmentBytes: 50 * MB },
+  team: { maxUploadsPerMonth: null, maxAttachmentBytes: 100 * MB },
 };
 
 export function planLimits(plan: Plan = getPlan()): PlanLimits {

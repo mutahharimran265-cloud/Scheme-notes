@@ -3,7 +3,7 @@
 // DB_PROVIDER=postgresql via scripts/use-db-provider.mjs — see DEPLOY.md.
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
   // "native" covers local dev + Docker; the rhel target is Vercel's / other
   // serverless runtimes (Amazon Linux, OpenSSL 3).
   binaryTargets = ["native", "rhel-openssl-3.0.x"]
@@ -18,10 +18,19 @@ model Project {
   id         String          @id @default(cuid())
   title      String
   ownerEmail String? // captured for the "my projects" dashboard; commenting stays login-free
+  // Team workspace (Team plan). When teamId is set, access is governed by team
+  // membership + per-project ProjectMember levels instead of the public link.
+  team       Team?           @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamId     String?
+  visibility String          @default("public") // public (anyone with link) | private (members only)
+  members    ProjectMember[]
   createdAt  DateTime        @default(now())
   updatedAt  DateTime        @default(now()) @updatedAt
   files      SchematicFile[]
   revisions  Revision[]
+
+  @@index([teamId])
+  @@index([ownerEmail])
 }
 
 // A named schematic revision ("rev A", "v2.1"). Comments attach to a
@@ -39,9 +48,9 @@ model Revision {
 }
 
 model SchematicFile {
-  id         String    @id @default(cuid())
-  project    Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  projectId  String
+  id           String    @id @default(cuid())
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId    String
   fileUrl      String
   fileType     String // rendered/served type: png | jpg | pdf | svg
   // For native EDA uploads (e.g. KiCad .kicad_sch) we render to SVG for viewing
@@ -58,13 +67,13 @@ model SchematicFile {
 }
 
 model Comment {
-  id              String        @id @default(cuid())
-  schematicFile   SchematicFile @relation(fields: [schematicFileId], references: [id], onDelete: Cascade)
+  id              String           @id @default(cuid())
+  schematicFile   SchematicFile    @relation(fields: [schematicFileId], references: [id], onDelete: Cascade)
   schematicFileId String
   // Self-relation for threaded replies. A null parent = a top-level thread (has a pin).
-  parent          Comment?      @relation("Replies", fields: [parentCommentId], references: [id])
+  parent          Comment?         @relation("Replies", fields: [parentCommentId], references: [id])
   parentCommentId String?
-  replies         Comment[]     @relation("Replies")
+  replies         Comment[]        @relation("Replies")
   authorName      String
   // Per-browser secret (localStorage) that proves ownership of an anonymous
   // comment, so the author can edit/delete it without an account.
@@ -74,20 +83,22 @@ model Comment {
   // Null for replies — they hang off the parent thread's pin.
   xPercent        Float?
   yPercent        Float?
-  pageNumber      Int           @default(1)
-  status          String        @default("open") // open, in_review, resolved, wontfix
-  resolved        Boolean       @default(false)
+  pageNumber      Int              @default(1)
+  status          String           @default("open") // open, in_review, resolved, wontfix
+  resolved        Boolean          @default(false)
   // Set when this comment was carried over from an earlier revision.
-  carriedFrom     Comment?      @relation("CarriedComments", fields: [carriedFromId], references: [id], onDelete: SetNull)
+  carriedFrom     Comment?         @relation("CarriedComments", fields: [carriedFromId], references: [id], onDelete: SetNull)
   carriedFromId   String?
-  carried         Comment[]     @relation("CarriedComments")
+  carried         Comment[]        @relation("CarriedComments")
   // Engineer metadata: tags (JSON string array) + optional component link.
-  tags            String        @default("[]")
+  tags            String           @default("[]")
   componentRef    String? // designator or net, e.g. "R12", "NET_VBUS"
   partNumber      String?
   datasheetUrl    String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  // Edit history (version_history, Pro): one row appended per edit.
+  versions        CommentVersion[]
 
   @@index([schematicFileId])
   @@index([parentCommentId])
@@ -123,9 +134,80 @@ model SyncConfig {
 model Account {
   email                String    @id
   plan                 String    @default("free") // free | pro | team
+  // Priority-support flag (Team). Set by the billing webhook / team plan; drives
+  // a dashboard badge + a support-routing hook. No support system is wired yet.
+  prioritySupport      Boolean   @default(false)
   stripeCustomerId     String?
   stripeSubscriptionId String?
   currentPeriodEnd     DateTime?
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Team workspaces (Team plan) — a shared workspace with members, roles, and
+// pending email invites. Projects can be attached to a team; per-project access
+// is refined by ProjectMember levels (viewer | commenter | admin).
+// ---------------------------------------------------------------------------
+model Team {
+  id        String       @id @default(cuid())
+  name      String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  members   TeamMember[]
+  invites   TeamInvite[]
+  projects  Project[]
+}
+
+model TeamMember {
+  id        String   @id @default(cuid())
+  team      Team     @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId    String
+  email     String
+  role      String   @default("member") // owner | admin | member
+  createdAt DateTime @default(now())
+
+  @@unique([teamId, email])
+  @@index([email])
+}
+
+model TeamInvite {
+  id         String    @id @default(cuid())
+  team       Team      @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  teamId     String
+  email      String
+  role       String    @default("member")
+  token      String    @unique // accept-link token
+  invitedBy  String
+  createdAt  DateTime  @default(now())
+  acceptedAt DateTime?
+
+  @@unique([teamId, email])
+  @@index([email])
+}
+
+// Per-project access level for a specific member email. Overrides the base team
+// role for that project (e.g. a member granted "admin" on one project).
+model ProjectMember {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  email     String
+  level     String   @default("commenter") // viewer | commenter | admin
+  createdAt DateTime @default(now())
+
+  @@unique([projectId, email])
+  @@index([email])
+}
+
+// Annotation edit history (version_history, Pro). One row per edit of a comment.
+model CommentVersion {
+  id        String   @id @default(cuid())
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  commentId String
+  body      String
+  editedBy  String? // authorName (anonymous) or email (signed-in) that made the edit
+  createdAt DateTime @default(now())
+
+  @@index([commentId])
 }

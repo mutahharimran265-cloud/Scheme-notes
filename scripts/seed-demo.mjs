@@ -5,7 +5,7 @@ import { PrismaClient } from "@prisma/client";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 
-const BASE = process.env.BASE || "http://localhost:3210";
+const BASE = process.env.BASE || "http://127.0.0.1:3000";
 const prisma = new PrismaClient();
 const TOKEN = "demo-seed-token";
 const h = { "Content-Type": "application/json", "x-author-token": TOKEN };

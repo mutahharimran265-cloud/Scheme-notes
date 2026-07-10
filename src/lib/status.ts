@@ -50,3 +50,12 @@ export function isOutstanding(t: { status?: string | null; resolved?: boolean })
   const s = statusOf(t);
   return s === "open" || s === "in_review";
 }
+
+/**
+ * Whether a status counts as "addressed" for the legacy `resolved` boolean.
+ * Only resolved/wontfix are resolved — "in_review" is still outstanding. Kept
+ * identical to the server (comments/[id] PATCH) so optimistic UI matches.
+ */
+export function isResolvedStatus(status: CommentStatus): boolean {
+  return status === "resolved" || status === "wontfix";
+}

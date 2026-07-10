@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getSessionEmail } from "@/lib/auth";
 import { hasFeatureForEmail } from "@/lib/plan";
 import { buildOwnerBundle, applyOwnerBundle, type SyncBundle } from "@/lib/bundle";
+import { assertSafePublicUrl } from "@/lib/ssrf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -32,6 +33,17 @@ export async function POST(req: NextRequest) {
   const cfg = await prisma.syncConfig.findUnique({ where: { email } });
   if (!cfg) {
     return NextResponse.json({ error: "Configure your cloud target first." }, { status: 400 });
+  }
+
+  // Re-validate the stored target at fetch time (SSRF guard — narrows the
+  // window for DNS rebinding between save and use).
+  try {
+    await assertSafePublicUrl(cfg.cloudUrl);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Cloud URL is not allowed." },
+      { status: 400 },
+    );
   }
 
   const data = await req.json().catch(() => null);

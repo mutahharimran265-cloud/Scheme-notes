@@ -10,7 +10,7 @@ import {
   fetchThreads,
   setStatus,
 } from "@/lib/api";
-import { statusOf, type CommentStatus } from "@/lib/status";
+import { statusOf, isResolvedStatus, type CommentStatus } from "@/lib/status";
 import { getDisplayName, setDisplayName } from "@/lib/identity";
 import { downloadReviewPdf } from "@/lib/pdf-export";
 import SchematicViewer from "./SchematicViewer";
@@ -236,7 +236,7 @@ export default function ProjectWorkspace({
     const prevStatus = statusOf(target);
     setThreads((prev) =>
       prev.map((t) =>
-        t.id === threadId ? { ...t, status, resolved: status !== "open" } : t,
+        t.id === threadId ? { ...t, status, resolved: isResolvedStatus(status) } : t,
       ),
     );
     try {
@@ -245,7 +245,7 @@ export default function ProjectWorkspace({
       setThreads((prev) =>
         prev.map((t) =>
           t.id === threadId
-            ? { ...t, status: prevStatus, resolved: prevStatus !== "open" }
+            ? { ...t, status: prevStatus, resolved: isResolvedStatus(prevStatus) }
             : t,
         ),
       );
@@ -357,11 +357,17 @@ export default function ProjectWorkspace({
   }
 
   async function handleDownloadPdf() {
-    flash("Building PDF…");
+    // Persistent toast (durationMs 0) so it stays through a slow build, then
+    // swap it for a success/failure result instead of vanishing after 3s.
+    setToast({ message: "Building PDF…", durationMs: 0 });
     try {
       await downloadReviewPdf({ title, fileUrl, fileType, threads: numbered });
+      setToast({ message: "PDF downloaded.", durationMs: 2500 });
     } catch (e) {
-      flash(e instanceof Error ? e.message : "Couldn't build the PDF.");
+      setToast({
+        message: e instanceof Error ? e.message : "Couldn't build the PDF.",
+        durationMs: 4000,
+      });
     }
   }
 

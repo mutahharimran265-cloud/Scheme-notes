@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionEmail } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { hasFeature } from "@/lib/entitlements";
+import { hasFeature, planLimits } from "@/lib/entitlements";
 import { getPlanForEmail, uploadAllowance } from "@/lib/plan";
 import { cloudSyncActive, cloudSyncEnabled } from "@/lib/cloud";
 import { isBillingConfigured } from "@/lib/stripe";
@@ -11,6 +11,8 @@ import ExportButton from "@/components/ExportButton";
 import ApiTokens from "@/components/ApiTokens";
 import UpgradeButton from "@/components/UpgradeButton";
 import CloudSync from "@/components/CloudSync";
+import TeamsPanel from "@/components/TeamsPanel";
+import BackupsPanel from "@/components/BackupsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +130,8 @@ export default async function DashboardPage() {
   const plan = await getPlanForEmail(email);
   const billingConfigured = isBillingConfigured();
   const usage = await uploadAllowance(email);
+  const account = await prisma.account.findUnique({ where: { email } });
+  const attachMb = Math.round(planLimits(plan).maxAttachmentBytes / (1024 * 1024));
 
   const projects = await prisma.project.findMany({
     where: { ownerEmail: email },
@@ -170,6 +174,12 @@ export default async function DashboardPage() {
                 {plan}
               </span>
             )}
+            {account?.prioritySupport && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                Priority support
+              </span>
+            )}
+            <span className="ml-2 text-xs text-zinc-400">· attachments up to {attachMb} MB</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -210,6 +220,10 @@ export default async function DashboardPage() {
       {cloudSyncEnabled(plan) && <CloudSync />}
 
       <ApiTokens enabled={hasFeature("api_tokens", plan)} />
+
+      {hasFeature("cloud_backup", plan) && <BackupsPanel />}
+
+      {hasFeature("shared_workspaces", plan) && <TeamsPanel />}
     </main>
   );
 }

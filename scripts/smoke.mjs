@@ -5,7 +5,7 @@
 import { PrismaClient } from "@prisma/client";
 import { readFile } from "node:fs/promises";
 
-const BASE = process.env.BASE || "http://localhost:3210";
+const BASE = process.env.BASE || "http://127.0.0.1:3000";
 const prisma = new PrismaClient();
 const createdProjectIds = [];
 

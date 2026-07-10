@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getSessionEmail } from "@/lib/auth";
 import { hasFeatureForEmail } from "@/lib/plan";
+import { assertSafePublicUrl } from "@/lib/ssrf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,14 +38,14 @@ export async function POST(req: NextRequest) {
   const cloudUrl = typeof data?.cloudUrl === "string" ? data.cloudUrl.trim().replace(/\/+$/, "") : "";
   const cloudToken = typeof data?.cloudToken === "string" ? data.cloudToken.trim() : "";
 
-  let ok = false;
   try {
-    const u = new URL(cloudUrl);
-    ok = u.protocol === "http:" || u.protocol === "https:";
-  } catch {
-    ok = false;
+    await assertSafePublicUrl(cloudUrl);
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Enter a valid cloud URL." },
+      { status: 400 },
+    );
   }
-  if (!ok) return NextResponse.json({ error: "Enter a valid cloud URL (http/https)." }, { status: 400 });
   if (!cloudToken) return NextResponse.json({ error: "Enter the cloud API token." }, { status: 400 });
 
   await prisma.syncConfig.upsert({

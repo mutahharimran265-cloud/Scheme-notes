@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { signToken, MAGIC_TTL, isValidEmail, normalizeEmail } from "@/lib/auth";
 import { isEmailConfigured, sendMagicLink } from "@/lib/mailer";
+import { isRateLimited } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -10,6 +11,19 @@ export async function POST(req: NextRequest) {
   const email = normalizeEmail(typeof data?.email === "string" ? data.email : "");
   if (!isValidEmail(email)) {
     return NextResponse.json({ error: "Enter a valid email address." }, { status: 400 });
+  }
+
+  // Rate-limit to prevent magic-link email bombing — per sender IP and per
+  // target email (so a victim's inbox can't be flooded from many IPs).
+  const ip = req.headers.get("x-forwarded-for") || "unknown";
+  if (
+    isRateLimited(`auth-ip:${ip}`, 8, 10 * 60 * 1000).limited ||
+    isRateLimited(`auth-email:${email}`, 4, 10 * 60 * 1000).limited
+  ) {
+    return NextResponse.json(
+      { error: "Too many sign-in requests. Please wait a few minutes and try again." },
+      { status: 429 },
+    );
   }
 
   const token = signToken({ email, purpose: "magic" }, MAGIC_TTL);
@@ -34,6 +48,11 @@ export async function POST(req: NextRequest) {
   }
 
   console.log(`\n🔗 SchemNotes sign-in link for ${email}:\n${link}\n`);
+  // Return the link in the response for local dev, and for a shared preview
+  // build with SCHEMNOTES_PREVIEW_LOGIN=1 (so testers can sign in without SMTP).
+  // NOTE: preview mode lets anyone who requests a link for an address sign in as
+  // it — only enable it for trusted preview builds, never real production.
   const isDev = process.env.NODE_ENV !== "production";
-  return NextResponse.json({ ok: true, ...(isDev ? { devLink: link } : {}) });
+  const preview = process.env.SCHEMNOTES_PREVIEW_LOGIN === "1";
+  return NextResponse.json({ ok: true, ...(isDev || preview ? { devLink: link } : {}) });
 }
