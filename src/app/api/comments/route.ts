@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { hashToken } from "@/lib/auth";
+import { hashToken, getSessionEmail } from "@/lib/auth";
 import { hasFeature } from "@/lib/entitlements";
 import {
   toThreadDTO,
@@ -12,6 +12,8 @@ import {
   LIMITS,
 } from "@/lib/comments";
 import { isRateLimited } from "@/lib/rate-limit";
+import { parsePageParam } from "@/lib/pagination";
+import { fileCapability, projectCapability, atLeast } from "@/lib/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,8 +28,16 @@ export async function GET(req: NextRequest) {
   }
   const viewerToken = req.headers.get(AUTHOR_TOKEN_HEADER);
 
-  const page = Math.max(1, parseInt(req.nextUrl.searchParams.get("page") || "1", 10));
-  const limit = Math.min(100, Math.max(1, parseInt(req.nextUrl.searchParams.get("limit") || "100", 10)));
+  // Access control: private/team schematics require a member with view+ access.
+  if (!atLeast(await fileCapability(fileId, await getSessionEmail()), "view")) {
+    return NextResponse.json(
+      { error: "You don't have access to this schematic." },
+      { status: 403 },
+    );
+  }
+
+  const page = parsePageParam(req.nextUrl.searchParams.get("page"), 1, 1, Number.MAX_SAFE_INTEGER);
+  const limit = parsePageParam(req.nextUrl.searchParams.get("limit"), 100, 1, 100);
   const skip = (page - 1) * limit;
 
   const threads = await prisma.comment.findMany({
@@ -105,9 +115,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Comment cannot be empty." }, { status: 400 });
   }
 
-  const file = await prisma.schematicFile.findUnique({ where: { id: schematicFileId } });
+  const file = await prisma.schematicFile.findUnique({
+    where: { id: schematicFileId },
+    include: {
+      project: { select: { id: true, ownerEmail: true, teamId: true, visibility: true } },
+    },
+  });
   if (!file) {
     return NextResponse.json({ error: "Schematic not found." }, { status: 404 });
+  }
+  // Access control: public projects allow anyone to comment; private/team
+  // projects require a member with commenter+ access.
+  if (!atLeast(await projectCapability(file.project, await getSessionEmail()), "comment")) {
+    return NextResponse.json(
+      { error: "You don't have permission to comment on this schematic." },
+      { status: 403 },
+    );
   }
 
   // Reply: attach to the ROOT of the referenced thread (keep threads two levels deep).

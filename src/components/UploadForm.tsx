@@ -11,7 +11,6 @@ export default function UploadForm() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
-  const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -34,7 +33,6 @@ export default function UploadForm() {
       const fd = new FormData();
       fd.append("file", file);
       fd.append("title", title.trim() || file.name);
-      if (email.trim()) fd.append("ownerEmail", email.trim());
 
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       const data = await res.json().catch(() => ({}));
@@ -101,30 +99,16 @@ export default function UploadForm() {
         )}
       </label>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-foreground/70">Project title</span>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g. Power supply rev B"
-            className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-foreground outline-none transition-shadow focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/[0.04]"
-          />
-        </label>
-        <label className="flex flex-col gap-1.5 text-sm">
-          <span className="font-medium text-foreground/70">
-            Your email <span className="font-normal text-foreground/35">(optional)</span>
-          </span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-foreground outline-none transition-shadow focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/[0.04]"
-          />
-        </label>
-      </div>
+      <label className="flex flex-col gap-1.5 text-sm">
+        <span className="font-medium text-foreground/70">Project title</span>
+        <input
+          type="text"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="e.g. Power supply rev B"
+          className="rounded-xl border border-black/10 bg-white px-3 py-2.5 text-foreground outline-none transition-shadow focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/[0.04]"
+        />
+      </label>
 
       {error && (
         <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-950/40 dark:text-red-300">

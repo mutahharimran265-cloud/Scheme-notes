@@ -22,11 +22,17 @@ export default function CloudSync() {
   const [busy, setBusy] = useState<"save" | "push" | "pull" | null>(null);
 
   async function load() {
-    const res = await fetch("/api/cloud/config");
-    if (res.ok) {
+    try {
+      const res = await fetch("/api/cloud/config");
+      if (!res.ok) throw new Error();
       const d = (await res.json()) as Config;
       setCfg(d);
       setCloudUrl(d.cloudUrl);
+    } catch {
+      setMsg({
+        text: "Couldn't load your cloud-sync settings — check your connection and reload.",
+        error: true,
+      });
     }
   }
   useEffect(() => {

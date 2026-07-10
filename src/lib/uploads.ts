@@ -6,6 +6,7 @@ import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { convertKicadSchToSvg } from "./kicad";
 import { putFile } from "./storage";
+import { sanitizeSvg } from "./sanitize";
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024; // 25 MB
 
@@ -96,7 +97,12 @@ export async function storeSchematicUpload(file: unknown): Promise<StoredUpload>
     await writeFile(nativePath, bytes);
     try {
       const svgPath = await convertKicadSchToSvg(nativePath, tmp);
-      const fileUrl = await putFile(`${id}.svg`, await readFile(svgPath), "image/svg+xml");
+      const svgText = (await readFile(svgPath)).toString("utf8");
+      const fileUrl = await putFile(
+        `${id}.svg`,
+        Buffer.from(sanitizeSvg(svgText), "utf8"),
+        "image/svg+xml",
+      );
       const originalUrl = await putFile(`${id}.kicad_sch`, bytes, "text/plain");
       return { fileUrl, servedType: "svg", originalUrl, originalName: file.name };
     } catch (err) {
@@ -110,7 +116,10 @@ export async function storeSchematicUpload(file: unknown): Promise<StoredUpload>
     }
   }
 
+  // Strip active content from user SVGs before storing (served same-origin).
+  const outBytes =
+    fileType === "svg" ? Buffer.from(sanitizeSvg(bytes.toString("utf8")), "utf8") : bytes;
   const storedName = `${randomUUID()}.${fileType}`;
-  const fileUrl = await putFile(storedName, bytes);
+  const fileUrl = await putFile(storedName, outBytes);
   return { fileUrl, servedType: fileType, originalUrl: null, originalName: null };
 }

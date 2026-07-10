@@ -1,9 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
+import { getSessionEmail } from "@/lib/auth";
+import { projectCapability } from "@/lib/access";
 import { toThreadDTO } from "@/lib/comments";
 import ProjectWorkspace from "@/components/ProjectWorkspace";
 import CopyLinkButton from "@/components/CopyLinkButton";
+import ProjectShareControl from "@/components/ProjectShareControl";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +22,10 @@ export default async function ProjectPage({
 
   const project = await prisma.project.findUnique({ where: { id } });
   if (!project) notFound();
+
+  // Private/team projects are members-only — don't reveal them to non-members.
+  const capability = await projectCapability(project, await getSessionEmail());
+  if (capability === "none") notFound();
 
   const file = await prisma.schematicFile.findFirst({
     where: { projectId: id },
@@ -66,7 +73,10 @@ export default async function ProjectPage({
             </p>
           )}
         </div>
-        <CopyLinkButton />
+        <div className="flex shrink-0 items-center gap-2">
+          {capability === "admin" && <ProjectShareControl projectId={id} />}
+          <CopyLinkButton />
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 bp-grid">

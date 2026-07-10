@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import { isRateLimited } from "@/lib/rate-limit";
 import { putFile } from "@/lib/storage";
+import { getSessionEmail } from "@/lib/auth";
+import { getPlanForEmail } from "@/lib/plan";
+import { planLimits } from "@/lib/entitlements";
 
 export const runtime = "nodejs";
-
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB per pasted image
 
 // POST /api/attachments -> store a pasted image (scope capture, photo) and
 // return its URL for embedding in a markdown comment body.
@@ -27,8 +28,14 @@ export async function POST(req: NextRequest) {
   if (!(file instanceof File) || file.size === 0) {
     return NextResponse.json({ error: "No image provided." }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
-    return NextResponse.json({ error: "Image too large (max 10 MB)." }, { status: 400 });
+  // Per-plan attachment size cap (free 10 MB → Pro 50 MB → Team 100 MB).
+  const maxBytes = planLimits(await getPlanForEmail(await getSessionEmail())).maxAttachmentBytes;
+  if (file.size > maxBytes) {
+    const mb = Math.round(maxBytes / (1024 * 1024));
+    return NextResponse.json(
+      { error: `Image too large (max ${mb} MB on your plan).` },
+      { status: 400 },
+    );
   }
 
   const bytes = Buffer.from(await file.arrayBuffer());

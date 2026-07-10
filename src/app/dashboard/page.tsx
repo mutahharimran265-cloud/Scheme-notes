@@ -2,15 +2,18 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessionEmail } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { hasFeature } from "@/lib/entitlements";
+import { hasFeature, planLimits } from "@/lib/entitlements";
 import { getPlanForEmail, uploadAllowance } from "@/lib/plan";
 import { cloudSyncActive, cloudSyncEnabled } from "@/lib/cloud";
 import { isBillingConfigured } from "@/lib/stripe";
 import { ProjectList } from "@/components/ProjectList";
+import AdSlot from "@/components/AdSlot";
 import ExportButton from "@/components/ExportButton";
 import ApiTokens from "@/components/ApiTokens";
 import UpgradeButton from "@/components/UpgradeButton";
 import CloudSync from "@/components/CloudSync";
+import TeamsPanel from "@/components/TeamsPanel";
+import BackupsPanel from "@/components/BackupsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -121,13 +124,20 @@ function UploadUsageCard({
   );
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ upgraded?: string; canceled?: string }>;
+}) {
+  const { upgraded, canceled } = await searchParams;
   const email = await getSessionEmail();
   if (!email) redirect("/login");
 
   const plan = await getPlanForEmail(email);
   const billingConfigured = isBillingConfigured();
   const usage = await uploadAllowance(email);
+  const account = await prisma.account.findUnique({ where: { email } });
+  const attachMb = Math.round(planLimits(plan).maxAttachmentBytes / (1024 * 1024));
 
   const projects = await prisma.project.findMany({
     where: { ownerEmail: email },
@@ -170,6 +180,12 @@ export default async function DashboardPage() {
                 {plan}
               </span>
             )}
+            {account?.prioritySupport && (
+              <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                Priority support
+              </span>
+            )}
+            <span className="ml-2 text-xs text-zinc-400">· attachments up to {attachMb} MB</span>
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -191,6 +207,26 @@ export default async function DashboardPage() {
         </div>
       </div>
 
+      {upgraded && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 text-sm dark:border-emerald-900/60 dark:bg-emerald-950/30">
+          <span className="text-lg">🎉</span>
+          <div>
+            <p className="font-semibold text-emerald-800 dark:text-emerald-300">
+              Subscription active — thank you!
+            </p>
+            <p className="text-emerald-700/80 dark:text-emerald-300/70">
+              Your plan is being applied. If features don&apos;t show immediately, refresh in a
+              moment (the payment confirmation lands via webhook).
+            </p>
+          </div>
+        </div>
+      )}
+      {canceled && (
+        <div className="mb-6 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900/50 dark:text-zinc-300">
+          Checkout canceled — no charge was made. You can upgrade any time.
+        </div>
+      )}
+
       <CloudSyncCard
         syncActive={cloudSyncActive(plan)}
         syncEnabled={cloudSyncEnabled(plan)}
@@ -210,6 +246,14 @@ export default async function DashboardPage() {
       {cloudSyncEnabled(plan) && <CloudSync />}
 
       <ApiTokens enabled={hasFeature("api_tokens", plan)} />
+
+      {hasFeature("cloud_backup", plan) && <BackupsPanel />}
+
+      {hasFeature("shared_workspaces", plan) && <TeamsPanel />}
+
+      {/* Ad slot (revenue). Shown to free accounts only — paid plans are ad-free.
+          It's a labelled placeholder; drop your ad-network code into AdSlot.tsx. */}
+      {plan === "free" && <AdSlot className="mt-12" />}
     </main>
   );
 }

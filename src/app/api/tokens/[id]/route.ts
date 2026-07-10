@@ -28,6 +28,12 @@ export async function DELETE(
   if (!token) {
     return NextResponse.json({ error: "Token not found." }, { status: 404 });
   }
+  // Ownership check: on a hosted deploy a signed-in user may only revoke their
+  // own tokens (404, not 403, so token existence isn't revealed). Local installs
+  // (no email) are the single machine owner and may manage any token.
+  if (!isLocal && token.email !== email) {
+    return NextResponse.json({ error: "Token not found." }, { status: 404 });
+  }
   await prisma.apiToken.delete({ where: { id } });
   return NextResponse.json({ ok: true });
 }

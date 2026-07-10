@@ -21,8 +21,9 @@ export async function POST(req: NextRequest) {
   const rawTitle = (form.get("title") as string | null)?.trim() || "Untitled schematic";
   const title = sanitizeHtml(rawTitle).slice(0, 100);
   const sessionEmail = await getSessionEmail();
-  const ownerEmail =
-    sessionEmail ?? (form.get("ownerEmail") as string | null)?.trim() ?? null;
+  // Ownership is only ever the verified session email — never a client-supplied
+  // value (which could be used to plant a project in someone else's dashboard).
+  const ownerEmail = sessionEmail;
 
   const identifier = req.headers.get("x-forwarded-for") || sessionEmail || "unknown";
   const { limited } = isRateLimited(`uploads:${identifier}`, 10, 60 * 1000);

@@ -240,6 +240,19 @@ function CommentItem({
   const [draft, setDraft] = useState(comment.body);
   const draftRef = useRef<HTMLTextAreaElement>(null);
   const [pasting, setPasting] = useState(false);
+  const [versions, setVersions] = useState<
+    { id: string; body: string; editedBy: string | null; createdAt: string }[] | null
+  >(null);
+  const [vMsg, setVMsg] = useState<string | null>(null);
+
+  async function loadVersions() {
+    setVMsg(null);
+    const res = await fetch(`/api/comments/${comment.id}/versions`);
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 402) return setVMsg("Viewing edit history is a Pro feature.");
+    if (!res.ok) return setVMsg(d.error || "Couldn't load edit history.");
+    setVersions(d.versions);
+  }
 
   async function onDraftPaste(e: React.ClipboardEvent) {
     const img = imageFromClipboard(e);
@@ -279,6 +292,12 @@ function CommentItem({
                 className="text-xs text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200"
               >
                 Edit
+              </button>
+              <button
+                onClick={loadVersions}
+                className="text-xs text-zinc-400 hover:text-indigo-600 dark:hover:text-zinc-200"
+              >
+                History
               </button>
               <button
                 onClick={() => onDelete(comment.id)}
@@ -324,7 +343,26 @@ function CommentItem({
             </div>
           </div>
         ) : (
-          <CommentBody body={comment.body} />
+          <>
+            <CommentBody body={comment.body} />
+            {vMsg && <p className="mt-1 text-xs text-amber-600">{vMsg}</p>}
+            {versions && versions.length === 0 && (
+              <p className="mt-1 text-xs text-zinc-400">No earlier versions.</p>
+            )}
+            {versions && versions.length > 0 && (
+              <div className="mt-1.5 space-y-1.5 rounded-lg border border-zinc-200 bg-zinc-50 p-2 text-xs dark:border-zinc-700 dark:bg-zinc-800/50">
+                <p className="font-medium text-zinc-500">Edit history ({versions.length})</p>
+                {versions.map((v) => (
+                  <div key={v.id}>
+                    <span className="text-[10px] text-zinc-400">
+                      {new Date(v.createdAt).toLocaleString()} · {v.editedBy ?? "unknown"}
+                    </span>
+                    <p className="whitespace-pre-wrap text-zinc-600 dark:text-zinc-300">{v.body}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
