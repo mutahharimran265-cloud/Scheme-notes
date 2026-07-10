@@ -55,6 +55,7 @@ export default function SchematicViewer({
   const containerRef = useRef<HTMLDivElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
   const apiRef = useRef<ReactZoomPanPinchContentRef | null>(null);
   const downRef = useRef<{ x: number; y: number } | null>(null);
   const scaleRef = useRef(1);
@@ -62,6 +63,14 @@ export default function SchematicViewer({
   const [pdfState, setPdfState] = useState<"loading" | "ready" | "error">(
     isPdf ? "loading" : "ready",
   );
+  // Track the image load like the PDF: a schematic that fails to load shows a
+  // clear message instead of a blank canvas, and (because pins only render once
+  // ready) they never get positioned against a 0-size, not-yet-loaded image —
+  // which is what made annotations look like they were in the wrong place.
+  const [imgState, setImgState] = useState<"loading" | "ready" | "error">(
+    isPdf ? "ready" : "loading",
+  );
+  const mediaState = isPdf ? pdfState : imgState;
   const [tick, setTick] = useState(0);
   const [anchorBox, setAnchorBox] = useState<AnchorBox | null>(null);
 
@@ -143,6 +152,20 @@ export default function SchematicViewer({
     return () => {
       cancelled = true;
     };
+  }, [isPdf, fileUrl, fitView]);
+
+  // A cached image can already be `complete` before React attaches onLoad, which
+  // would otherwise leave it stuck on "Loading…". Reconcile on mount / src change.
+  useEffect(() => {
+    if (isPdf) return;
+    const img = imgRef.current;
+    if (!img || !img.complete) return;
+    if (img.naturalWidth > 0) {
+      setImgState("ready");
+      requestAnimationFrame(fitView);
+    } else {
+      setImgState("error");
+    }
   }, [isPdf, fileUrl, fitView]);
 
   // Recompute the popover anchor whenever the transform, anchor, or size changes.
@@ -237,16 +260,20 @@ export default function SchematicViewer({
               </ToolbarButton>
             </div>
 
-            {pdfState !== "ready" && (
+            {mediaState !== "ready" && (
               <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center">
                 <span
                   className={`rounded-lg px-3 py-1.5 text-sm ${
-                    pdfState === "error" ? "text-red-600" : "text-zinc-500"
+                    mediaState === "error" ? "text-red-600" : "text-zinc-500"
                   }`}
                 >
-                  {pdfState === "error"
-                    ? "Could not render this PDF. Try a PNG/SVG export."
-                    : "Rendering PDF…"}
+                  {mediaState === "error"
+                    ? isPdf
+                      ? "Could not render this PDF. Try a PNG/SVG export."
+                      : "Couldn't load the schematic image. Check your connection and refresh."
+                    : isPdf
+                      ? "Rendering PDF…"
+                      : "Loading schematic…"}
                 </span>
               </div>
             )}
@@ -266,16 +293,23 @@ export default function SchematicViewer({
                 ) : (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
+                    ref={imgRef}
                     src={fileUrl}
                     alt="Schematic"
                     className="block max-w-none"
                     draggable={false}
-                    onLoad={() => requestAnimationFrame(fitView)}
+                    onLoad={() => {
+                      setImgState("ready");
+                      requestAnimationFrame(fitView);
+                    }}
+                    onError={() => setImgState("error")}
                   />
                 )}
 
-                {/* Comment pins — counter-scaled so they stay a constant screen size */}
-                {pins.map((p) => (
+                {/* Comment pins — counter-scaled so they stay a constant screen size.
+                    Only rendered once the media is ready so they anchor to the
+                    correctly-sized image, never a 0-size/not-yet-loaded box. */}
+                {mediaState === "ready" && pins.map((p) => (
                   <button
                     key={p.id}
                     onPointerDown={stop}

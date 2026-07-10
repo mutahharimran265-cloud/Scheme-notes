@@ -87,10 +87,21 @@ export default function ProjectWorkspace({
   // Load identity + refresh threads (to pick up ownership flags) on mount.
   useEffect(() => {
     setName(getDisplayName());
+    let cancelled = false;
     fetchThreads(fileId)
-      .then(setThreads)
-      .catch(() => {});
-  }, [fileId]);
+      .then((fresh) => {
+        if (!cancelled) setThreads(fresh);
+      })
+      .catch(() => {
+        // Keep the server-rendered comments on screen and tell the user instead
+        // of silently dropping them — the old `.catch(() => {})` is what made
+        // comments look like they "disappeared on reopen" when a refresh failed.
+        if (!cancelled) flash("Couldn't refresh comments — showing the last loaded version.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fileId, flash]);
 
   // Deep link: /project/x?rev=...&focus=<commentId> opens that thread.
   useEffect(() => {
