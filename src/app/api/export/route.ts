@@ -4,6 +4,7 @@ import JSZip from "jszip";
 import { prisma } from "@/lib/prisma";
 import { getSessionEmail } from "@/lib/auth";
 import { readStored } from "@/lib/storage";
+import { projectCapability, atLeast } from "@/lib/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -20,12 +21,27 @@ const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 export async function GET(req: NextRequest) {
   const isLocal = LOCAL_HOSTS.has(req.nextUrl.hostname);
   const email = await getSessionEmail();
-  if (!isLocal && !email) {
+  // ?projectId=<id> exports just that ONE project (its schematic + comments +
+  // files). Without it you get your whole workspace (a full backup).
+  const projectId = req.nextUrl.searchParams.get("projectId");
+
+  if (projectId) {
+    const p = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, ownerEmail: true, teamId: true, visibility: true },
+    });
+    if (!p) return NextResponse.json({ error: "Project not found." }, { status: 404 });
+    // Anyone who can view the project may export it (data-ownership escape
+    // hatch); private/team projects still require a member.
+    if (!isLocal && !atLeast(await projectCapability(p, email), "view")) {
+      return NextResponse.json({ error: "You don't have access to this project." }, { status: 403 });
+    }
+  } else if (!isLocal && !email) {
     return NextResponse.json({ error: "Sign in to export your data." }, { status: 401 });
   }
 
   const projects = await prisma.project.findMany({
-    where: isLocal ? {} : { ownerEmail: email },
+    where: projectId ? { id: projectId } : isLocal ? {} : { ownerEmail: email },
     orderBy: { createdAt: "asc" },
     include: {
       files: {
@@ -43,7 +59,7 @@ export async function GET(req: NextRequest) {
         app: "SchemNotes",
         formatVersion: 3, // v3: files nested directly under projects
         exportedAt: new Date().toISOString(),
-        scope: isLocal ? "all-local-data" : `owner:${email}`,
+        scope: projectId ? `project:${projectId}` : isLocal ? "all-local-data" : `owner:${email}`,
         projects,
       },
       null,

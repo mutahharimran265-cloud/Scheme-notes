@@ -7,6 +7,7 @@ import { toThreadDTO } from "@/lib/comments";
 import ProjectWorkspace from "@/components/ProjectWorkspace";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import ProjectShareControl from "@/components/ProjectShareControl";
+import ExportButton from "@/components/ExportButton";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,7 @@ export default async function ProjectPage({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {capability === "admin" && <ProjectShareControl projectId={id} />}
+          <ExportButton projectId={id} />
           <CopyLinkButton />
         </div>
       </div>
