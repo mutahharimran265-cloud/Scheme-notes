@@ -3,6 +3,7 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
+import { linkifyMentions } from "@/lib/mentions";
 
 /**
  * Renders a comment body as markdown (GFM + soft line breaks).
@@ -90,7 +91,7 @@ export default function CommentBody({ body }: { body: string }) {
           ),
         }}
       >
-        {body}
+        {linkifyMentions(body)}
       </ReactMarkdown>
     </div>
   );

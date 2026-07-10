@@ -18,6 +18,8 @@ export function ProjectList({ initialCards }: { initialCards: ProjectData[] }) {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "open" | "resolved">("all");
   const [toast, setToast] = useState<{
     message: string;
     durationMs?: number;
@@ -109,10 +111,51 @@ export function ProjectList({ initialCards }: { initialCards: ProjectData[] }) {
     );
   }
 
+  const q = search.trim().toLowerCase();
+  const visible = cards.filter((c) => {
+    const matchesSearch = !q || c.project.title.toLowerCase().includes(q);
+    const matchesFilter =
+      filter === "all"
+        ? true
+        : filter === "open"
+          ? c.open > 0
+          : c.total > 0 && c.open === 0;
+    return matchesSearch && matchesFilter;
+  });
+
   return (
     <>
+      <div className="mb-5 flex flex-wrap items-center gap-3">
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search projects…"
+          className="w-full max-w-xs rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-900"
+        />
+        <div className="flex items-center gap-1.5">
+          {(["all", "open", "resolved"] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors ${
+                filter === f
+                  ? "bg-indigo-600 text-white"
+                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700"
+              }`}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {visible.length === 0 ? (
+        <p className="rounded-2xl border border-dashed border-zinc-300 py-12 text-center text-sm text-zinc-500 dark:border-zinc-700">
+          No projects match your search or filter.
+        </p>
+      ) : (
       <ul className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map(({ project, file, total, open }) => (
+        {visible.map(({ project, file, total, open }) => (
           <li key={project.id} className="group relative">
             <Link
               href={`/project/${project.id}`}
@@ -205,6 +248,7 @@ export function ProjectList({ initialCards }: { initialCards: ProjectData[] }) {
           </li>
         ))}
       </ul>
+      )}
 
       {deletingId && (
         <ConfirmDialog

@@ -9,11 +9,9 @@ import { isBillingConfigured } from "@/lib/stripe";
 import { ProjectList } from "@/components/ProjectList";
 import AdSlot from "@/components/AdSlot";
 import ExportButton from "@/components/ExportButton";
-import ApiTokens from "@/components/ApiTokens";
 import UpgradeButton from "@/components/UpgradeButton";
 import CloudSync from "@/components/CloudSync";
 import TeamsPanel from "@/components/TeamsPanel";
-import BackupsPanel from "@/components/BackupsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -244,10 +242,6 @@ export default async function DashboardPage({
       <ProjectList initialCards={cards} />
 
       {cloudSyncEnabled(plan) && <CloudSync />}
-
-      <ApiTokens enabled={hasFeature("api_tokens", plan)} />
-
-      {hasFeature("cloud_backup", plan) && <BackupsPanel />}
 
       {hasFeature("shared_workspaces", plan) && <TeamsPanel />}
 

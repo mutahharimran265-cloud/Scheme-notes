@@ -14,6 +14,8 @@ import {
 import { isRateLimited } from "@/lib/rate-limit";
 import { parsePageParam } from "@/lib/pagination";
 import { fileCapability, projectCapability, atLeast } from "@/lib/access";
+import { extractMentionEmails } from "@/lib/mentions";
+import { isEmailConfigured, sendMentionNotification } from "@/lib/mailer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -118,7 +120,7 @@ export async function POST(req: NextRequest) {
   const file = await prisma.schematicFile.findUnique({
     where: { id: schematicFileId },
     include: {
-      project: { select: { id: true, ownerEmail: true, teamId: true, visibility: true } },
+      project: { select: { id: true, title: true, ownerEmail: true, teamId: true, visibility: true } },
     },
   });
   if (!file) {
@@ -178,6 +180,30 @@ export async function POST(req: NextRequest) {
       datasheetUrl,
     },
   });
+
+  // Best-effort @mention notifications — only when SMTP is configured, and never
+  // block or fail the comment if email delivery has a problem.
+  const mentions = extractMentionEmails(body);
+  if (mentions.length && isEmailConfigured()) {
+    const origin = process.env.APP_ORIGIN?.trim() || req.nextUrl.origin;
+    const focusId = created.parentCommentId ?? created.id;
+    const link = `${origin}/project/${file.project.id}?focus=${focusId}`;
+    const snippet = body.length > 140 ? body.slice(0, 140) + "…" : body;
+    try {
+      await Promise.allSettled(
+        mentions.map((to) =>
+          sendMentionNotification(to, {
+            projectTitle: file.project.title,
+            author: authorName,
+            link,
+            snippet,
+          }),
+        ),
+      );
+    } catch {
+      /* notifications are best-effort */
+    }
+  }
 
   return NextResponse.json({ comment: toCommentDTO(created, authorToken) }, { status: 201 });
 }

@@ -169,7 +169,7 @@ export default function ThreadPanel({
           }}
           rows={2}
           maxLength={4000}
-          placeholder="Reply… (markdown + pasted images supported)"
+          placeholder="Reply… (markdown, pasted images, @email to mention)"
           className="w-full resize-none rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-950"
         />
         {pasting && (
