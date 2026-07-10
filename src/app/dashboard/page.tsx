@@ -7,6 +7,7 @@ import { getPlanForEmail, uploadAllowance } from "@/lib/plan";
 import { cloudSyncActive, cloudSyncEnabled } from "@/lib/cloud";
 import { isBillingConfigured } from "@/lib/stripe";
 import { ProjectList } from "@/components/ProjectList";
+import AdSlot from "@/components/AdSlot";
 import ExportButton from "@/components/ExportButton";
 import ApiTokens from "@/components/ApiTokens";
 import UpgradeButton from "@/components/UpgradeButton";
@@ -249,6 +250,10 @@ export default async function DashboardPage({
       {hasFeature("cloud_backup", plan) && <BackupsPanel />}
 
       {hasFeature("shared_workspaces", plan) && <TeamsPanel />}
+
+      {/* Ad slot (revenue). Shown to free accounts only — paid plans are ad-free.
+          It's a labelled placeholder; drop your ad-network code into AdSlot.tsx. */}
+      {plan === "free" && <AdSlot className="mt-12" />}
     </main>
   );
 }
