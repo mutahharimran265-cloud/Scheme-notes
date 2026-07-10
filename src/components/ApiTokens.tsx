@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Toast } from "./Toast";
 
@@ -124,12 +125,12 @@ export default function ApiTokens({ enabled = true }: { enabled?: boolean }) {
             </code>{" "}
             requests. Scriptable API access is part of the Pro plan.
           </p>
-          <a
+          <Link
             href="/#pricing"
             className="mt-3 inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
           >
             See plans →
-          </a>
+          </Link>
         </div>
       </section>
     );
