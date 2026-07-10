@@ -47,7 +47,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, sent: true });
   }
 
-  console.log(`\n🔗 SchemNotes sign-in link for ${email}:\n${link}\n`);
   // Return the link in the response for local dev, and for a shared preview
   // build with SCHEMNOTES_PREVIEW_LOGIN=1 (so testers can sign in without SMTP).
   // NOTE: preview mode lets anyone who requests a link for an address sign in as
@@ -55,6 +54,9 @@ export async function POST(req: NextRequest) {
   const isDev = process.env.NODE_ENV !== "production";
   const preview = process.env.SCHEMNOTES_PREVIEW_LOGIN === "1";
   if (isDev || preview) {
+    // Only log the link when we're intentionally exposing it (dev/preview).
+    // A signed magic link is a bearer credential — never write it to prod logs.
+    console.log(`\n🔗 SchemNotes sign-in link for ${email}:\n${link}\n`);
     return NextResponse.json({ ok: true, devLink: link });
   }
   // Production with no SMTP and no preview mode: we can neither email the link
