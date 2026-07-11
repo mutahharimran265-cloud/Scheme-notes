@@ -4,72 +4,14 @@ import { getSessionEmail } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { hasFeature, planLimits } from "@/lib/entitlements";
 import { getPlanForEmail, uploadAllowance } from "@/lib/plan";
-import { cloudSyncActive, cloudSyncEnabled } from "@/lib/cloud";
 import { isBillingConfigured } from "@/lib/stripe";
 import { ProjectList } from "@/components/ProjectList";
 import AdSlot from "@/components/AdSlot";
 import ExportButton from "@/components/ExportButton";
 import UpgradeButton from "@/components/UpgradeButton";
-import CloudSync from "@/components/CloudSync";
 import TeamsPanel from "@/components/TeamsPanel";
 
 export const dynamic = "force-dynamic";
-
-function CloudSyncCard({
-  syncActive,
-  syncEnabled,
-  billingConfigured,
-}: {
-  syncActive: boolean;
-  syncEnabled: boolean;
-  billingConfigured: boolean;
-}) {
-  if (syncActive) {
-    return (
-      <div className="mb-6 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/30">
-        <span className="mt-0.5 grid h-6 w-6 place-items-center rounded-full bg-emerald-500 text-white">
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 stroke-current stroke-[3]" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M5 13l4 4L19 7" /></svg>
-        </span>
-        <div className="text-sm">
-          <p className="font-semibold text-emerald-800 dark:text-emerald-300">Cloud sync is on</p>
-          <p className="text-emerald-700/80 dark:text-emerald-300/70">
-            Your projects follow you — sign in with this email on any device to pick up where you left off.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (syncEnabled) {
-    // Pro plan, but this instance is on a single-machine database.
-    return (
-      <div className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 text-sm dark:border-indigo-900/60 dark:bg-indigo-950/30">
-        <p className="font-semibold text-indigo-800 dark:text-indigo-300">Cloud sync ready</p>
-        <p className="text-indigo-700/80 dark:text-indigo-300/70">
-          Your plan includes cloud sync. Push this workspace to a cloud instance from the sync
-          panel below, or deploy with a shared Postgres database for automatic multi-device access
-          (see <code className="rounded bg-white px-1 py-0.5 text-xs dark:bg-zinc-900">DEPLOY.md</code>).
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-800 dark:bg-zinc-900/50">
-      <div>
-        <p className="font-semibold text-zinc-700 dark:text-zinc-200">Cloud sync <span className="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300">Pro</span></p>
-        <p className="text-zinc-500">Work across machines — your projects on every device, unlimited uploads, plus the scriptable API.</p>
-      </div>
-      {billingConfigured ? (
-        <UpgradeButton plan="pro" label="Upgrade to Pro" />
-      ) : (
-        <Link href="/#pricing" className="rounded-lg border border-indigo-300 px-3 py-1.5 font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/40">
-          See plans →
-        </Link>
-      )}
-    </div>
-  );
-}
 
 function UploadUsageCard({
   used,
@@ -225,12 +167,6 @@ export default async function DashboardPage({
         </div>
       )}
 
-      <CloudSyncCard
-        syncActive={cloudSyncActive(plan)}
-        syncEnabled={cloudSyncEnabled(plan)}
-        billingConfigured={billingConfigured}
-      />
-
       {usage.limit !== null && (
         <UploadUsageCard
           used={usage.used}
@@ -240,8 +176,6 @@ export default async function DashboardPage({
       )}
 
       <ProjectList initialCards={cards} />
-
-      {cloudSyncEnabled(plan) && <CloudSync />}
 
       {hasFeature("shared_workspaces", plan) && <TeamsPanel />}
 

@@ -195,7 +195,7 @@ export default function Home() {
             <p className="mt-3 text-foreground/60">
               The full review tool is free and local — every format, including
               KiCad. Free covers 5 uploads a month; paid plans add unlimited
-              uploads, cloud sync, and team collaboration.
+              uploads, version history, and team collaboration.
             </p>
           </div>
 
@@ -209,7 +209,7 @@ export default function Home() {
                 "KiCad, PDF, SVG & image upload",
                 "Unlimited comments, status + ⌘K search",
                 "Markdown notes & pasted images",
-                "Export all data, automatic backups",
+                "Export any project (or all your data) as a zip",
                 "Fully offline — data never leaves your machine",
               ]}
               cta="Start now — it's free"
@@ -223,14 +223,13 @@ export default function Home() {
               features={[
                 "Everything in Free",
                 "Unlimited schematic uploads",
-                "Cloud sync across devices",
-                "Scriptable API tokens & REST access",
-                "Cloud backup",
-                "Priority support",
+                "Comment version history",
+                "Larger attachment uploads (50 MB)",
+                "Email notifications on @-mentions",
               ]}
               cta="Coming soon"
               featured
-              note="Cloud sync ships today for self-hosted deploys — hosted billing is next."
+              note="Hosted billing is coming soon."
             />
             <PlanCard
               name="Team"

@@ -18,22 +18,14 @@
 export type Plan = "free" | "pro" | "team";
 
 export type Feature =
-  | "cloud_sync"
-  | "cloud_backup"
   | "version_history"
-  | "api_tokens"
   | "shared_workspaces"
   | "roles_permissions"
   | "priority_support"
   | "notifications"
   | "integrations";
 
-const PRO_FEATURES: readonly Feature[] = [
-  "cloud_sync",
-  "cloud_backup",
-  "version_history",
-  "api_tokens",
-];
+const PRO_FEATURES: readonly Feature[] = ["version_history"];
 const TEAM_FEATURES: readonly Feature[] = [
   ...PRO_FEATURES,
   "shared_workspaces",

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { hashToken, getSessionEmail } from "@/lib/auth";
-import { hasFeature } from "@/lib/entitlements";
 import {
   toThreadDTO,
   toCommentDTO,
@@ -66,43 +65,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
   }
 
-  const bearer = req.headers.get("authorization")?.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
-  let apiTokenSecret: string | null = null;
-  if (bearer) {
-    // Bearer auth is the scriptable-API path, which is a Pro feature.
-    if (!hasFeature("api_tokens")) {
-      return NextResponse.json(
-        { error: "API tokens are a Pro feature. Upgrade to script the review API." },
-        { status: 402 },
-      );
-    }
-    const apiToken = await prisma.apiToken.findUnique({
-      where: { tokenHash: hashToken(bearer) },
-    });
-    if (!apiToken) {
-      return NextResponse.json({ error: "Invalid API token." }, { status: 401 });
-    }
-    apiTokenSecret = bearer;
-    await prisma.apiToken.update({
-      where: { id: apiToken.id },
-      data: { lastUsedAt: new Date() },
-    });
-  }
-
-  if (!apiTokenSecret) {
-    const identifier = req.headers.get("x-author-token") || req.headers.get("x-forwarded-for") || "unknown";
-    const { limited } = isRateLimited(`comments:${identifier}`, 30, 60 * 1000);
-    if (limited) {
-      return NextResponse.json({ error: "Too many comments. Please wait." }, { status: 429 });
-    }
+  // Rate-limit comment creation, keyed by the per-browser author token (falling
+  // back to IP). Applies to every request — there is no bypass.
+  const identifier =
+    req.headers.get("x-author-token") || req.headers.get("x-forwarded-for") || "unknown";
+  const { limited } = isRateLimited(`comments:${identifier}`, 30, 60 * 1000);
+  if (limited) {
+    return NextResponse.json({ error: "Too many comments. Please wait." }, { status: 429 });
   }
 
   const schematicFileId = cleanText(data.schematicFileId, 60);
   const authorName = cleanText(data.authorName, LIMITS.name);
   const body = cleanText(data.body, LIMITS.body);
-  // An API token doubles as the author identity, so scripted comments can be
-  // edited/deleted later using the same token.
-  const authorToken = apiTokenSecret ?? (cleanText(data.authorToken, 200) || null);
+  const authorToken = cleanText(data.authorToken, 200) || null;
   const parentCommentId = data.parentCommentId
     ? cleanText(data.parentCommentId, 60)
     : null;
