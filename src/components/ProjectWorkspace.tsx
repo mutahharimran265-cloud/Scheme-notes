@@ -14,6 +14,7 @@ import { statusOf, isResolvedStatus, type CommentStatus } from "@/lib/status";
 import { getDisplayName, setDisplayName } from "@/lib/identity";
 import { downloadReviewPdf } from "@/lib/pdf-export";
 import SchematicViewer from "./SchematicViewer";
+import { EXPORT_PDF_EVENT } from "./ExportButton";
 import CommentSidebar, { type ThreadFilter } from "./CommentSidebar";
 import PinComposer, { type ComposerExtras } from "./PinComposer";
 import CommandPalette from "./CommandPalette";
@@ -162,6 +163,17 @@ export default function ProjectWorkspace({
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [numbered, activeId]);
+
+  // The header "Export PDF" button lives outside this component — it fires a
+  // window event asking us to build the PDF (we own the live comment state).
+  useEffect(() => {
+    const run = () => {
+      handleDownloadPdf();
+    };
+    window.addEventListener(EXPORT_PDF_EVENT, run);
+    return () => window.removeEventListener(EXPORT_PDF_EVENT, run);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threads, title, fileUrl, fileType]);
 
   function withName(run: (name: string) => void) {
     if (name) run(name);
