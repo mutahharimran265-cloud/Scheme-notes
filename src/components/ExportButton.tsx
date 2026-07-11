@@ -21,7 +21,9 @@ export default function ExportButton({
   async function run() {
     setBusy(true);
     try {
-      const res = await fetch(`/api/export?projectId=${encodeURIComponent(projectId)}`);
+      const res = await fetch(`/api/export?projectId=${encodeURIComponent(projectId)}`, {
+        cache: "no-store",
+      });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Export failed. Please try again.");

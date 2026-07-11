@@ -1,0 +1,9 @@
+# SchemNotes — keep unlisted share links and app pages out of search engines.
+# Project links are secret-by-URL: never index them.
+User-agent: *
+Disallow: /project/
+Disallow: /dashboard
+Disallow: /teams/
+Disallow: /login
+Disallow: /api/
+Disallow: /uploads/

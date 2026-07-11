@@ -11,6 +11,9 @@ import ExportButton from "@/components/ExportButton";
 
 export const dynamic = "force-dynamic";
 
+// Share links are secret-by-URL — never let search engines index a project.
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function ProjectPage({
   params,
   searchParams,
