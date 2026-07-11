@@ -7,7 +7,6 @@ import { getPlanForEmail, uploadAllowance } from "@/lib/plan";
 import { isBillingConfigured } from "@/lib/stripe";
 import { ProjectList } from "@/components/ProjectList";
 import AdSlot from "@/components/AdSlot";
-import ExportButton from "@/components/ExportButton";
 import UpgradeButton from "@/components/UpgradeButton";
 import TeamsPanel from "@/components/TeamsPanel";
 
@@ -135,7 +134,6 @@ export default async function DashboardPage({
           >
             + New project
           </Link>
-          <ExportButton />
           <form action="/api/auth/logout" method="post">
             <button
               type="submit"
