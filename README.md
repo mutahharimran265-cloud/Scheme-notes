@@ -6,6 +6,16 @@ Upload a schematic (image or PDF), share a link, and let reviewers click anywher
 
 ---
 
+## Run it live
+
+**[Deploy your own copy to Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Ftree%2Fcloud-sync-and-deploy&env=AUTH_SECRET,SCHEMNOTES_PLAN&envDescription=See%20DEPLOY.md%20for%20what%20each%20variable%20needs%20%E2%80%94%20AUTH_SECRET%20is%20a%20random%2064-char%20hex%20string%2C%20SCHEMNOTES_PLAN%20is%20free%2Fpro%2Fteam.&envLink=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Fblob%2Fcloud-sync-and-deploy%2FDEPLOY.md&project-name=schemnotes&repository-name=schemnotes) — click, add a database from the Storage tab (Neon Postgres, one click), and you have a permanent URL that works on every device. Full walkthrough: [`DEPLOY.md`](DEPLOY.md).
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Ftree%2Fcloud-sync-and-deploy&env=AUTH_SECRET,SCHEMNOTES_PLAN&project-name=schemnotes&repository-name=schemnotes)
+
+Prefer to run it yourself first? Clone this repo and double-click `START-SCHEMNOTES.bat` (Windows) — see [Getting started](#getting-started) below.
+
+---
+
 ## Why
 
 Getting feedback on a schematic today means either emailing a screenshot and receiving a messy thread with no visual anchor, or asking the reviewer to install the same CAD tool (KiCad, Altium, Eagle) just to look at the file. SchemNotes gives you a lightweight, CAD‑agnostic way to say **“comment right here”** on any exported schematic.
@@ -18,12 +28,14 @@ Getting feedback on a schematic today means either emailing a screenshot and rec
 - **Threaded discussions** with an **Open / In review / Resolved / Won't-fix** workflow — reply to any pin and triage like a GitHub PR conversation.
 - **Instant search (Ctrl/Cmd+K)** — full-text over comments and replies, `#tag` filters, and status filters; jump straight to the pin.
 - **Component linking** — tie a comment to a designator/net (`R12`, `NET_VBUS`), part number, and datasheet link; tag comments for grouping (`power`, `emi`).
-- **Markdown + pasted images** — paste a scope capture or board photo straight into any comment box; bodies render as GFM markdown (lists, code, tables). Images stay local; remote images are never fetched.
-- **Scriptable REST API** — personal tokens (dashboard → API tokens) let a test rig or CI auto-log pinned annotations, bypassing rate limits. See [`docs/API.md`](docs/API.md).
-- **Review sidebar** listing every thread with All / Open / Resolved filters; click a thread to jump to its pin (and vice‑versa).
+- **Markdown + pasted images** — paste a scope capture or board photo straight into any comment box; bodies render as GFM markdown (lists, code, tables). Images stay local; remote images are never fetched. `@name@email.com` mentions highlight and (with SMTP configured) email the mentioned person a link to the comment.
+- **REST API** for reading/creating comments programmatically — no account or token needed, same rate limits as the UI. See [`docs/API.md`](docs/API.md).
+- **Review sidebar** listing every thread with All / Open / Resolved filters; click a thread to jump to its pin (and vice‑versa). Search + status filter on the dashboard as your project list grows.
 - **No‑login commenting** — reviewers just pick a display name. A per‑browser token lets them edit/delete *their own* comments without an account.
 - **Magic‑link sign‑in** (passwordless) for a **”My projects”** dashboard where owners can rename or delete their projects.
-- **Shareable link** per project, copy‑to‑clipboard.
+- **Shareable link** per project — native share sheet on phones, clipboard on desktop.
+- **Export** — one PDF per project: the schematic with its numbered comment pins, followed by the comment list. Nothing else leaves the project.
+- **Team workspaces** (Team plan) — shared projects with viewer/commenter/admin roles and email invites.
 
 ## Tech stack
 
@@ -156,7 +168,7 @@ scripts/
 ## Data safety
 
 - **Automatic backups** — the launchers and `npm run db:migrate` copy `prisma/dev.db` into `prisma/backups/` (rolling, newest 10 kept) *before* any migration touches it.
-- **Export everything** — the **Export data** button on the dashboard (or `GET /api/export` on a local install) downloads a zip of all projects, comments, and schematic files (including native KiCad originals). Your data is never locked in.
+- **Export** — the **Export PDF** button on a project downloads the schematic with its comment pins and comment list as a single PDF. Your data is never locked in.
 - **Undo windows** — deleting a comment, thread, or project shows an Undo toast; the deletion only executes after the window passes.
 - **Local-first, permanently** — every core annotation feature works fully offline with no network dependency.
 
@@ -168,7 +180,7 @@ With the dev server running:
 node scripts/smoke.mjs samples/sample-schematic.svg
 ```
 
-Exercises the full comment lifecycle, the status workflow, tags/component metadata, image attachments, API tokens, ownership‑token enforcement, input validation, cascade delete, and the magic‑link auth + project‑ownership chain (38 assertions), cleaning up after itself.
+Exercises the full comment lifecycle, the status workflow, tags/component metadata, image attachments, ownership‑token enforcement, input validation, cascade delete, and the magic‑link auth + project‑ownership chain (32 assertions), cleaning up after itself.
 
 ---
 
@@ -181,7 +193,6 @@ Exercises the full comment lifecycle, the status workflow, tags/component metada
 
 ## Roadmap (post‑MVP)
 
-- Native `.kicad_sch` rendering (e.g. KiCanvas) so comments anchor to real components/nets.
-- Multi‑page PDFs and schematic revisions with diffing.
-- Real‑time presence and email notifications.
-- Teams and role‑based permissions.
+- Multi‑page PDF viewing (currently page 1 only).
+- Real‑time presence while multiple reviewers are on the same schematic.
+- Billing self‑serve (Stripe checkout is wired; needs a live Stripe account).
