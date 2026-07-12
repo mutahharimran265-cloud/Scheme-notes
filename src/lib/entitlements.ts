@@ -7,9 +7,9 @@
 //     and fully offline, permanently — moving those behind a paywall would
 //     lock users out of their own data.
 //   - Additive power / cloud / team capabilities live here and require a plan.
-//     "api_tokens" (scriptable REST access) is a Pro power feature; the free
-//     tier keeps the full interactive review experience on every file format
-//     (including native KiCad).
+//     The free tier keeps the full interactive review experience on every
+//     file format (including native KiCad) — paid plans add team workspaces
+//     and comment version history, not core review capability.
 //   - The free tier is limited by VOLUME, not capability — see planLimits()
 //     (uploads per month). Server code must check hasFeature()/planLimits()
 //     before serving a gated capability; client code may also check, but only

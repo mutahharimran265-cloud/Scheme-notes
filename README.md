@@ -8,9 +8,22 @@ Upload a schematic (image or PDF), share a link, and let reviewers click anywher
 
 ## Run it live
 
-**[Deploy your own copy to Vercel](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Ftree%2Fcloud-sync-and-deploy&env=AUTH_SECRET,SCHEMNOTES_PLAN&envDescription=See%20DEPLOY.md%20for%20what%20each%20variable%20needs%20%E2%80%94%20AUTH_SECRET%20is%20a%20random%2064-char%20hex%20string%2C%20SCHEMNOTES_PLAN%20is%20free%2Fpro%2Fteam.&envLink=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Fblob%2Fcloud-sync-and-deploy%2FDEPLOY.md&project-name=schemnotes&repository-name=schemnotes) — click, add a database from the Storage tab (Neon Postgres, one click), and you have a permanent URL that works on every device. Full walkthrough: [`DEPLOY.md`](DEPLOY.md).
+Gets you a permanent URL that works on every device. Takes two deploys — the
+**first one is expected to fail** (there's no database yet), the second one
+works. Don't skip step 3.
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Ftree%2Fcloud-sync-and-deploy&env=AUTH_SECRET,SCHEMNOTES_PLAN&project-name=schemnotes&repository-name=schemnotes)
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Ftree%2Fcloud-sync-and-deploy&env=AUTH_SECRET,SCHEMNOTES_PLAN,DATABASE_URL&envDescription=AUTH_SECRET%3A%20random%2064-char%20hex%20string.%20SCHEMNOTES_PLAN%3A%20free%2Fpro%2Fteam.%20DATABASE_URL%3A%20leave%20as%20a%20placeholder%20for%20now%20%E2%80%94%20fixed%20in%20step%203%20below.&envLink=https%3A%2F%2Fgithub.com%2Fmutahharimran265-cloud%2FScheme-notes%2Fblob%2Fcloud-sync-and-deploy%2FDEPLOY.md&project-name=schemnotes&repository-name=schemnotes)
+
+1. Click the button, fill in `AUTH_SECRET` (any random 64-char string) and
+   `SCHEMNOTES_PLAN` (`pro` or `team` to unlock everything). For
+   `DATABASE_URL`, type anything as a placeholder — click **Deploy**.
+2. It fails — that's expected, there's no database attached yet.
+3. Open the new project → **Storage** tab → **Create Database → Neon**
+   (sets `DATABASE_URL` for real) and **Create → Blob** (for uploaded files).
+4. **Deployments** tab → the failed one → **⋯ → Redeploy**. This time it
+   builds the tables in Neon and succeeds — that's your permanent link.
+
+Full walkthrough with screenshots-worth of detail: [`DEPLOY.md`](DEPLOY.md).
 
 Prefer to run it yourself first? Clone this repo and double-click `START-SCHEMNOTES.bat` (Windows) — see [Getting started](#getting-started) below.
 
