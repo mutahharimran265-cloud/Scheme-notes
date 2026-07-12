@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "vercel-build": "node scripts/use-db-provider.mjs postgresql && prisma generate && prisma db push --skip-generate && next build",
+    "vercel-build": "node scripts/use-db-provider.mjs postgresql && prisma generate && node scripts/db-push-if-ready.mjs && next build",
     "start": "next start",
     "lint": "eslint",
     "seed": "node scripts/seed-demo.mjs",
