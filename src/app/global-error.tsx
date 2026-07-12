@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+
 // Last-resort boundary for errors thrown in the root layout itself (where the
 // normal error.tsx can't render because it lives inside that layout). Must
 // render its own <html>/<body>.
@@ -10,6 +12,10 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    console.error("SchemNotes crashed:", error);
+  }, [error]);
+
   return (
     <html lang="en">
       <body
