@@ -14,6 +14,18 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // The pdf.js rendering engine (1.2 MB) — cache it hard so a PDF
+        // schematic only pays the download once per device, not per visit.
+        // (public/ files otherwise ship with max-age=0.)
+        source: "/pdf.worker.min.mjs",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
