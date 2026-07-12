@@ -32,6 +32,28 @@ export function isEmailConfigured(): boolean {
 
 const FROM = () => process.env.SMTP_FROM || "SchemNotes <no-reply@localhost>";
 
+/** Notifies someone they were @mentioned in a comment. Throws if SMTP is off. */
+export async function sendMentionNotification(
+  to: string,
+  opts: { projectTitle: string; author: string; link: string; snippet: string },
+): Promise<void> {
+  const t = transporter();
+  if (!t) throw new Error("SMTP is not configured (set SMTP_HOST).");
+  await t.sendMail({
+    from: FROM(),
+    to,
+    subject: `${opts.author} mentioned you in "${opts.projectTitle}"`,
+    text: `${opts.author} mentioned you in a schematic review:\n\n"${opts.snippet}"\n\nView it: ${opts.link}\n`,
+    html: `
+      <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0e1424">
+        <h2 style="font-size:18px;margin:0 0 8px">${opts.author} mentioned you</h2>
+        <p style="margin:0 0 4px;color:#475">in the schematic review <strong>${opts.projectTitle}</strong>:</p>
+        <blockquote style="margin:12px 0;padding:8px 12px;border-left:3px solid #4f46e5;color:#334">${opts.snippet}</blockquote>
+        <a href="${opts.link}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px;font-weight:600">View the comment</a>
+      </div>`,
+  });
+}
+
 /** Sends the passwordless sign-in link. Throws if SMTP isn't configured. */
 export async function sendMagicLink(to: string, link: string): Promise<void> {
   const t = transporter();

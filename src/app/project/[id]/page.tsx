@@ -7,8 +7,12 @@ import { toThreadDTO } from "@/lib/comments";
 import ProjectWorkspace from "@/components/ProjectWorkspace";
 import CopyLinkButton from "@/components/CopyLinkButton";
 import ProjectShareControl from "@/components/ProjectShareControl";
+import ExportButton from "@/components/ExportButton";
 
 export const dynamic = "force-dynamic";
+
+// Share links are secret-by-URL — never let search engines index a project.
+export const metadata = { robots: { index: false, follow: false } };
 
 export default async function ProjectPage({
   params,
@@ -52,6 +56,11 @@ export default async function ProjectPage({
 
   return (
     <main className="flex h-[calc(100dvh-3.5rem)] flex-col">
+      {/* Start downloading the schematic with the HTML, before React hydrates —
+          on slow connections this shaves seconds off time-to-schematic. */}
+      {file && file.fileType !== "pdf" && (
+        <link rel="preload" as="image" href={file.fileUrl} fetchPriority="high" />
+      )}
       <div className="flex shrink-0 items-center justify-between gap-4 border-b border-black/[0.06] bg-background/80 px-4 py-2.5 backdrop-blur-md sm:px-6 dark:border-white/[0.08]">
         <div className="min-w-0">
           <h1 className="truncate font-display text-base font-bold tracking-tight sm:text-lg">
@@ -75,6 +84,7 @@ export default async function ProjectPage({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {capability === "admin" && <ProjectShareControl projectId={id} />}
+          <ExportButton />
           <CopyLinkButton />
         </div>
       </div>

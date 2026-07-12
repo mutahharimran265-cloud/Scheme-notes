@@ -71,6 +71,9 @@ export default function SchematicViewer({
     isPdf ? "ready" : "loading",
   );
   const mediaState = isPdf ? pdfState : imgState;
+  // Download progress for PDFs (0-99). Large schematics over slow links used to
+  // sit on a silent "Rendering…" for a minute — show real progress instead.
+  const [pdfProgress, setPdfProgress] = useState<number | null>(null);
   const [tick, setTick] = useState(0);
   const [anchorBox, setAnchorBox] = useState<AnchorBox | null>(null);
 
@@ -130,9 +133,20 @@ export default function SchematicViewer({
       try {
         const pdfjs = await import("pdfjs-dist");
         pdfjs.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-        const pdf = await pdfjs.getDocument({ url: fileUrl }).promise;
+        const task = pdfjs.getDocument({ url: fileUrl });
+        task.onProgress = ({ loaded, total }: { loaded: number; total?: number }) => {
+          if (!cancelled && total) {
+            setPdfProgress(Math.min(99, Math.round((loaded / total) * 100)));
+          }
+        };
+        const pdf = await task.promise;
         const page = await pdf.getPage(1);
-        const viewport = page.getViewport({ scale: 2 });
+        // Cap the rendered canvas: oversized canvases exceed mobile limits
+        // (iOS especially) and silently paint BLANK — the "not opening on my
+        // phone" failure. 4096px on the long side is safe and still sharp.
+        const base = page.getViewport({ scale: 1 });
+        const scale = Math.min(2, 4096 / Math.max(base.width, base.height));
+        const viewport = page.getViewport({ scale });
         const canvas = canvasRef.current;
         if (!canvas || cancelled) return;
         const ctx = canvas.getContext("2d");
@@ -262,19 +276,20 @@ export default function SchematicViewer({
 
             {mediaState !== "ready" && (
               <div className="pointer-events-none absolute inset-0 z-20 grid place-items-center">
-                <span
-                  className={`rounded-lg px-3 py-1.5 text-sm ${
-                    mediaState === "error" ? "text-red-600" : "text-zinc-500"
-                  }`}
-                >
-                  {mediaState === "error"
-                    ? isPdf
+                {mediaState === "error" ? (
+                  <span className="rounded-lg px-3 py-1.5 text-sm text-red-600">
+                    {isPdf
                       ? "Could not render this PDF. Try a PNG/SVG export."
-                      : "Couldn't load the schematic image. Check your connection and refresh."
-                    : isPdf
-                      ? "Rendering PDF…"
+                      : "Couldn't load the schematic image. Check your connection and refresh."}
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2.5 rounded-xl border border-black/[0.06] bg-white/90 px-4 py-2 text-sm text-zinc-600 shadow-lg backdrop-blur dark:border-white/[0.08] dark:bg-zinc-900/90 dark:text-zinc-300">
+                    <span className="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                    {isPdf && pdfProgress !== null
+                      ? `Downloading schematic… ${pdfProgress}%`
                       : "Loading schematic…"}
-                </span>
+                  </span>
+                )}
               </div>
             )}
 
@@ -296,6 +311,7 @@ export default function SchematicViewer({
                     ref={imgRef}
                     src={fileUrl}
                     alt="Schematic"
+                    fetchPriority="high"
                     className="block max-w-none"
                     draggable={false}
                     onLoad={() => {

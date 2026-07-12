@@ -14,11 +14,35 @@ const nextConfig: NextConfig = {
         ],
       },
       {
+        // The pdf.js rendering engine (1.2 MB) — cache it hard so a PDF
+        // schematic only pays the download once per device, not per visit.
+        // (public/ files otherwise ship with max-age=0.)
+        source: "/pdf.worker.min.mjs",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=86400, stale-while-revalidate=604800",
+          },
+        ],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          // Force HTTPS for two years (ignored on plain-http localhost). Protects
+          // the magic-link + session cookies from downgrade/MITM once deployed.
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          // Turn off browser features the app never uses.
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=(), interest-cohort=()",
+          },
+          { key: "X-DNS-Prefetch-Control", value: "off" },
         ],
       },
     ];

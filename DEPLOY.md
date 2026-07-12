@@ -65,10 +65,18 @@ uploaded files (Vercel has no writable disk). All wired up:
 3. Add env vars (Settings → Environment Variables):
    - `DB_PROVIDER = postgresql`
    - `AUTH_SECRET =` a strong secret (`openssl rand -hex 32`)
-   - `SCHEMNOTES_PLAN = pro` (unlocks cloud sync + API tokens)
+   - `SCHEMNOTES_PLAN = pro` or `team` (unlocks comment version history, and
+     on `team` also shared team workspaces)
    - optional: `NEXT_PUBLIC_APP_URL`, plus `SMTP_*` / `STRIPE_*` (below).
 4. **Deploy.** The `vercel-build` script switches Prisma to Postgres, creates
    your tables in Neon, and builds the app.
+
+> **Deployed with the "Deploy with Vercel" button on the README instead?**
+> That flow triggers a build immediately, before you can add Storage — so the
+> **first deploy fails** with a Prisma error (`the URL must start with the
+> protocol postgresql://`). That's expected, not a bug: add Neon + Blob per
+> step 2 above, then **Deployments → the failed one → ⋯ → Redeploy** (no code
+> change needed). It succeeds once `DATABASE_URL` is real.
 
 - Use Neon's standard connection string; tables are created on first deploy.
 - Uploaded files live in Vercel Blob (free tier) and your data in Neon — both
@@ -130,7 +138,7 @@ same `docker compose up` if you'd rather not use your own hardware.
 | `DATABASE_URL` | yes | `postgresql://user:pass@host:5432/schemnotes?sslmode=require` | SQLite locally: `file:./dev.db` |
 | `AUTH_SECRET` | **yes (prod)** | 64 hex chars | Signs sessions. In production the app refuses the insecure dev default. Generate: `openssl rand -hex 32` |
 | `NEXT_PUBLIC_APP_URL` | yes | `https://schemnotes.example.com` | Used to build magic links. |
-| `SCHEMNOTES_PLAN` | no | `pro` | `free` (default), `pro`, or `team`. Unlocks cloud sync + API tokens for the deployment. |
+| `SCHEMNOTES_PLAN` | no | `pro` | `free` (default), `pro`, or `team`. Deployment-wide floor for paid features (version history on Pro; team workspaces on Team) — a per-account Stripe subscription can also grant these, see Payments below. |
 | `KICAD_CLI` | no | path to `kicad-cli` | Enables native `.kicad_sch` rendering. Not in the default image — install KiCad in a custom image, or upload PDF/SVG. |
 
 > **Plans:** `SCHEMNOTES_PLAN` sets a deployment-wide floor — for self-hosting,
@@ -169,23 +177,6 @@ Upgrades run through Stripe Checkout; a webhook flips the account to Pro/Team.
 Without Stripe env, the upgrade UI stays hidden and plans fall back to
 `SCHEMNOTES_PLAN`. (You add your own Stripe account + keys — the integration is
 built and ready.)
-
----
-
-## Cloud sync between installs (push / pull)
-
-A Pro account can sync its workspace between a local install and a cloud
-instance — no shared database required:
-
-1. Deploy one instance as your **cloud** (Postgres, per above).
-2. On the cloud instance: sign in → **Dashboard → API tokens** → create a token
-   (it's owned by your account).
-3. On your **local** install: sign in → **Cloud sync** panel → paste the cloud
-   URL + that token → **Push** (local → cloud) or **Pull** (cloud → local).
-
-Sync replaces the whole workspace (last write wins) and carries the schematic
-files. Endpoints: `GET`/`PUT /api/sync` (API-token-authed — the cloud side) and
-`POST /api/cloud/sync` (session-authed — the local side). Both are Pro-gated.
 
 ---
 
