@@ -4,7 +4,7 @@ import { writeFile, readFile, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
-import { convertKicadSchToSvg } from "./kicad";
+import { convertKicadSchToSvg, isKicadAvailable } from "./kicad";
 import { putFile } from "./storage";
 import { sanitizeSvg } from "./sanitize";
 
@@ -89,6 +89,15 @@ export async function storeSchematicUpload(file: unknown): Promise<StoredUpload>
   }
 
   if (fileType === "kicad_sch") {
+    // Reject up-front on hosts without KiCad (Vercel etc.) — clearer than the
+    // generic conversion failure a later exec would produce.
+    if (!isKicadAvailable()) {
+      throw new UploadError(
+        "This deployment can't render native KiCad files (KiCad isn't installed on the server). " +
+          "Please export your schematic to PDF or SVG from KiCad (File → Plot) and upload that instead.",
+        422,
+      );
+    }
     // kicad-cli needs real files on disk — convert in a temp dir, then hand the
     // rendered SVG + native source to storage (local disk or Blob).
     const id = randomUUID();
@@ -106,9 +115,13 @@ export async function storeSchematicUpload(file: unknown): Promise<StoredUpload>
       const originalUrl = await putFile(`${id}.kicad_sch`, bytes, "text/plain");
       return { fileUrl, servedType: "svg", originalUrl, originalName: file.name };
     } catch (err) {
+      // Include the actual reason so a genuine KiCad error (bad file, wrong
+      // version, permission problem) is diagnosable instead of a mystery.
+      const reason = err instanceof Error ? err.message : String(err);
       console.error("KiCad conversion failed:", err);
       throw new UploadError(
-        "Couldn't render this KiCad schematic. Make sure KiCad is installed on this machine (or set KICAD_CLI), or upload a PDF/SVG export instead.",
+        `Couldn't render this KiCad schematic. ${reason.slice(0, 200)}. ` +
+          "Try exporting to PDF or SVG from KiCad (File → Plot) and uploading that.",
         422,
       );
     } finally {

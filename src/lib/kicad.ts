@@ -1,11 +1,13 @@
 import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
+import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
 
 let cachedCli: string | undefined;
+let cachedInstalled: boolean | undefined;
 
 /**
  * Locate the `kicad-cli` binary:
@@ -31,15 +33,40 @@ export function findKicadCli(): string {
 }
 
 /**
+ * Whether kicad-cli is actually usable on this host. Serverless environments
+ * (Vercel etc.) will always return false — no way to install KiCad there — so
+ * the upload path can reject `.kicad_sch` with a clear message instead of a
+ * generic failure. Cached: KiCad's presence doesn't change while the app runs.
+ */
+export function isKicadAvailable(): boolean {
+  if (cachedInstalled !== undefined) return cachedInstalled;
+  const cli = findKicadCli();
+  // If findKicadCli returned an absolute path we verified above that it exists.
+  // The bare "kicad-cli" fallback is only usable if PATH contains it — we
+  // don't invoke `--version` synchronously here (that would need async), so
+  // treat it as "unknown → try it": on Vercel it'll fail and the upload path
+  // converts that failure into the friendly message.
+  if (cli.includes("/") || cli.includes("\\")) return (cachedInstalled = existsSync(cli));
+  return (cachedInstalled = true); // optimistic — let the actual exec surface the truth
+}
+
+/**
  * Render the first page of a KiCad schematic to SVG using kicad-cli.
- * Returns the path of the produced SVG (named after the input's basename).
+ * Returns the path of the produced SVG. kicad-cli names its output after the
+ * schematic's root-sheet name (not the input filename), so we don't try to
+ * predict it — we run in an isolated dir and pick whatever .svg turns up.
  */
 export async function convertKicadSchToSvg(
   inputPath: string,
   outDir: string,
 ): Promise<string> {
   const cli = findKicadCli();
-  const base = path.basename(inputPath).replace(/\.kicad_sch$/i, "");
+
+  const before = new Set(
+    existsSync(outDir)
+      ? (await readdir(outDir)).filter((f) => f.toLowerCase().endsWith(".svg"))
+      : [],
+  );
 
   await execFileAsync(
     cli,
@@ -47,9 +74,10 @@ export async function convertKicadSchToSvg(
     { timeout: 60_000, windowsHide: true },
   );
 
-  const out = path.join(outDir, `${base}.svg`);
-  if (!existsSync(out)) {
+  const after = (await readdir(outDir)).filter((f) => f.toLowerCase().endsWith(".svg"));
+  const produced = after.find((f) => !before.has(f)) ?? after[0];
+  if (!produced) {
     throw new Error("KiCad export did not produce an SVG.");
   }
-  return out;
+  return path.join(outDir, produced);
 }
