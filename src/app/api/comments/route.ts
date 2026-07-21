@@ -12,7 +12,7 @@ import {
 } from "@/lib/comments";
 import { isRateLimited } from "@/lib/rate-limit";
 import { parsePageParam } from "@/lib/pagination";
-import { fileCapability, projectCapability, atLeast } from "@/lib/access";
+import { fileCapability, projectCapability, atLeast, projectMemberEmails } from "@/lib/access";
 import { extractMentionEmails } from "@/lib/mentions";
 import { isEmailConfigured, sendMentionNotification } from "@/lib/mailer";
 
@@ -157,26 +157,33 @@ export async function POST(req: NextRequest) {
   });
 
   // Best-effort @mention notifications — only when SMTP is configured, and never
-  // block or fail the comment if email delivery has a problem.
+  // block or fail the comment if email delivery has a problem. SECURITY: only
+  // notify emails that already have access to this project (owner / project
+  // members / team members). Emailing arbitrary addresses parsed from a comment
+  // body would turn this into an open spam/phishing relay from our domain.
   const mentions = extractMentionEmails(body);
   if (mentions.length && isEmailConfigured()) {
-    const origin = process.env.APP_ORIGIN?.trim() || req.nextUrl.origin;
-    const focusId = created.parentCommentId ?? created.id;
-    const link = `${origin}/project/${file.project.id}?focus=${focusId}`;
-    const snippet = body.length > 140 ? body.slice(0, 140) + "…" : body;
-    try {
-      await Promise.allSettled(
-        mentions.map((to) =>
-          sendMentionNotification(to, {
-            projectTitle: file.project.title,
-            author: authorName,
-            link,
-            snippet,
-          }),
-        ),
-      );
-    } catch {
-      /* notifications are best-effort */
+    const allowed = await projectMemberEmails(file.project);
+    const recipients = mentions.filter((m) => allowed.has(m.toLowerCase()));
+    if (recipients.length) {
+      const origin = process.env.APP_ORIGIN?.trim() || req.nextUrl.origin;
+      const focusId = created.parentCommentId ?? created.id;
+      const link = `${origin}/project/${file.project.id}?focus=${focusId}`;
+      const snippet = body.length > 140 ? body.slice(0, 140) + "…" : body;
+      try {
+        await Promise.allSettled(
+          recipients.map((to) =>
+            sendMentionNotification(to, {
+              projectTitle: file.project.title,
+              author: authorName,
+              link,
+              snippet,
+            }),
+          ),
+        );
+      } catch {
+        /* notifications are best-effort */
+      }
     }
   }
 

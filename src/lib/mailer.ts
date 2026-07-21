@@ -32,6 +32,17 @@ export function isEmailConfigured(): boolean {
 
 const FROM = () => process.env.SMTP_FROM || "SchemNotes <no-reply@localhost>";
 
+// Escape user-supplied text before interpolating into an HTML email body.
+// Without this, a comment author/body could inject arbitrary HTML (links,
+// images) into a notification sent from our trusted sending domain — a
+// phishing vector.
+function escapeHtml(s: string): string {
+  return s.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
+
 /** Notifies someone they were @mentioned in a comment. Throws if SMTP is off. */
 export async function sendMentionNotification(
   to: string,
@@ -39,6 +50,9 @@ export async function sendMentionNotification(
 ): Promise<void> {
   const t = transporter();
   if (!t) throw new Error("SMTP is not configured (set SMTP_HOST).");
+  const author = escapeHtml(opts.author);
+  const title = escapeHtml(opts.projectTitle);
+  const snippet = escapeHtml(opts.snippet);
   await t.sendMail({
     from: FROM(),
     to,
@@ -46,9 +60,9 @@ export async function sendMentionNotification(
     text: `${opts.author} mentioned you in a schematic review:\n\n"${opts.snippet}"\n\nView it: ${opts.link}\n`,
     html: `
       <div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#0e1424">
-        <h2 style="font-size:18px;margin:0 0 8px">${opts.author} mentioned you</h2>
-        <p style="margin:0 0 4px;color:#475">in the schematic review <strong>${opts.projectTitle}</strong>:</p>
-        <blockquote style="margin:12px 0;padding:8px 12px;border-left:3px solid #4f46e5;color:#334">${opts.snippet}</blockquote>
+        <h2 style="font-size:18px;margin:0 0 8px">${author} mentioned you</h2>
+        <p style="margin:0 0 4px;color:#475">in the schematic review <strong>${title}</strong>:</p>
+        <blockquote style="margin:12px 0;padding:8px 12px;border-left:3px solid #4f46e5;color:#334">${snippet}</blockquote>
         <a href="${opts.link}" style="display:inline-block;background:#4f46e5;color:#fff;text-decoration:none;padding:10px 18px;border-radius:10px;font-weight:600">View the comment</a>
       </div>`,
   });

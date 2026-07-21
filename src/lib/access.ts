@@ -103,3 +103,34 @@ export async function teamRole(teamId: string, email: string | null): Promise<Te
 export function canManageTeam(role: TeamRole | null): boolean {
   return role === "owner" || role === "admin";
 }
+
+/**
+ * The set of emails (lower-cased) that already have access to a project: its
+ * owner, per-project members, and — if it's attached to a team — team members.
+ * Used to gate @mention notifications so the app can only email people who are
+ * already part of the project, never arbitrary addresses from a comment body
+ * (which would turn the notification into a spam/phishing relay).
+ */
+export async function projectMemberEmails(project: {
+  id: string;
+  ownerEmail: string | null;
+  teamId: string | null;
+}): Promise<Set<string>> {
+  const emails = new Set<string>();
+  if (project.ownerEmail) emails.add(project.ownerEmail.toLowerCase());
+
+  const members = await prisma.projectMember.findMany({
+    where: { projectId: project.id },
+    select: { email: true },
+  });
+  for (const m of members) emails.add(m.email.toLowerCase());
+
+  if (project.teamId) {
+    const team = await prisma.teamMember.findMany({
+      where: { teamId: project.teamId },
+      select: { email: true },
+    });
+    for (const m of team) emails.add(m.email.toLowerCase());
+  }
+  return emails;
+}
