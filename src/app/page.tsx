@@ -2,6 +2,7 @@ import Link from "next/link";
 import UploadForm from "@/components/UploadForm";
 import HeroPreview from "@/components/HeroPreview";
 import AdSlot from "@/components/AdSlot";
+import Footer from "@/components/Footer";
 
 function Feature({
   icon,
@@ -251,11 +252,8 @@ export default function Home() {
         {/* Ad slot (revenue) — labelled placeholder; wire your ad network in AdSlot.tsx. */}
         <AdSlot className="mt-20" />
 
-        <footer className="mt-12 border-t border-black/[0.06] pt-6 text-center text-xs text-foreground/40 dark:border-white/[0.08]">
-          SchemNotes — lightweight, CAD-agnostic schematic review. Free and
-          local-first.
-        </footer>
       </div>
+      <Footer />
     </main>
   );
 }

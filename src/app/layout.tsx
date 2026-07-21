@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import Link from "next/link";
 import { getSessionEmail } from "@/lib/auth";
+import { SITE } from "@/lib/site";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -13,9 +14,55 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "SchemNotes — comment on circuit schematics",
-  description:
-    "Upload a circuit schematic, share a link, and let reviewers drop comment pins right on the diagram.",
+  metadataBase: new URL(SITE.url),
+  title: {
+    default: "SchemNotes — comment on circuit schematics",
+    template: "%s · SchemNotes",
+  },
+  description: SITE.description,
+  applicationName: SITE.name,
+  authors: [{ name: SITE.owner, url: SITE.github }],
+  creator: SITE.owner,
+  publisher: SITE.owner,
+  keywords: [
+    "schematic review",
+    "circuit schematic comments",
+    "PCB design review",
+    "KiCad schematic",
+    "annotate schematic",
+    "electronics design collaboration",
+  ],
+  openGraph: {
+    type: "website",
+    siteName: SITE.name,
+    title: "SchemNotes — comment on circuit schematics",
+    description: SITE.description,
+    url: SITE.url,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SchemNotes — comment on circuit schematics",
+    description: SITE.description,
+  },
+};
+
+// Structured data (JSON-LD) — this is the machine-readable "who publishes this
+// site" that Google reads to attribute ownership.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  name: SITE.name,
+  url: SITE.url,
+  applicationCategory: "DesignApplication",
+  operatingSystem: "Web",
+  description: SITE.description,
+  offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+  publisher: {
+    "@type": "Organization",
+    name: SITE.owner,
+    url: SITE.url,
+    sameAs: [SITE.github],
+  },
 };
 
 // Without this, mobile browsers render the page at ~980px desktop width
@@ -59,6 +106,10 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-background font-sans text-foreground">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
         <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-black/[0.06] bg-background/75 px-4 backdrop-blur-xl sm:px-6 dark:border-white/[0.08]">
           <Link href="/" className="group flex items-center gap-2.5">
             <LogoMark />
